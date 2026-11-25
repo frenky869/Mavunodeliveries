@@ -89,6 +89,8 @@ export interface Order {
   totalAmount: number;
   currency: 'KES';
   itemCount: number;
+  assignedDispatcherUid?: string;
+  assignedDispatcherName?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

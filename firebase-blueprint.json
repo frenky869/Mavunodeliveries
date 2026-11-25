@@ -189,6 +189,14 @@
         "itemCount": {
           "type": "number"
         },
+        "assignedDispatcherUid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "assignedDispatcherName": {
+          "type": "string",
+          "maxLength": 100
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"

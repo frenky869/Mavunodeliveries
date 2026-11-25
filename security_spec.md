@@ -7,6 +7,7 @@
 4. **Order & Subcollection Atomicity**: Order line items (`orders/{orderId}/items/{itemId}`) and initial tracking events (`orders/{orderId}/tracking/{eventId}`) validate parent order ownership via `getAfter()`/`get()`.
 5. **Terminal State Locking**: Once an order reaches `Delivered`, no further status transitions are permitted by dispatchers.
 6. **Temporal Integrity**: All `createdAt` and `updatedAt` timestamps must match `request.time`.
+7. **Admin vs Dispatcher Separation of Duties**: Only `admin` users may create, price, restock, or delete `commodities` and assign `assignedDispatcherUid` on orders or change user roles. Dispatchers may only view and advance delivery milestones on orders assigned to them (`assignedDispatcherUid == request.auth.uid`) and cannot modify catalog items or roles.
 
 ## 2. The "Dirty Dozen" Payloads
 1. **Self-Assigned Admin Role**: `POST /users/{uid}` with `{ role: "admin" }` -> `PERMISSION_DENIED`.

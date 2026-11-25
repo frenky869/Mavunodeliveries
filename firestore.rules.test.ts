@@ -109,4 +109,12 @@ export const dirtyDozenCases: DirtyDozenCase[] = [
     payload: {},
     expectedOutcome: 'PERMISSION_DENIED',
   },
+  {
+    id: 13,
+    name: 'Dispatcher Modifying Catalog Pricing or Stock',
+    collectionPath: 'commodities/silk_mulberry_champagne',
+    operation: 'update',
+    payload: { unitPrice: 1, stockQuantity: 999 },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
 ];

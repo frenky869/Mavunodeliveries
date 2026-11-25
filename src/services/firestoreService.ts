@@ -211,6 +211,8 @@ export async function placeOrderTransaction(params: {
         totalAmount,
         currency: 'KES',
         itemCount: totalQuantityCount,
+        assignedDispatcherUid: '',
+        assignedDispatcherName: '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -307,6 +309,51 @@ export function subscribeAllOrdersForAdmin(
       }
     }
   );
+}
+
+export function subscribeDispatcherAssignedOrders(
+  dispatcherUid: string,
+  onData: (orders: Order[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, 'orders'),
+    where('assignedDispatcherUid', '==', dispatcherUid)
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const orders = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<Order, 'id'>),
+      }));
+      orders.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+      onData(orders);
+    },
+    (error) => {
+      if (onError) {
+        onError(error);
+      } else {
+        handleFirestoreError(error, OperationType.LIST, 'orders');
+      }
+    }
+  );
+}
+
+export async function assignOrderDispatcher(
+  orderId: string,
+  dispatcherUid: string,
+  dispatcherName: string
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'orders', orderId), {
+      assignedDispatcherUid: dispatcherUid.trim().slice(0, 128),
+      assignedDispatcherName: dispatcherName.trim().slice(0, 100),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`);
+  }
 }
 
 export function subscribeOrderDetails(
@@ -524,6 +571,8 @@ export async function seedDemoWorkspace(adminProfile: UserProfile): Promise<{ se
         totalAmount: 16500,
         currency: 'KES',
         itemCount: 3,
+        assignedDispatcherUid: '',
+        assignedDispatcherName: '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -595,6 +644,8 @@ export async function seedDemoWorkspace(adminProfile: UserProfile): Promise<{ se
         totalAmount: 12050,
         currency: 'KES',
         itemCount: 3,
+        assignedDispatcherUid: '',
+        assignedDispatcherName: '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

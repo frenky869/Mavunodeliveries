@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  Lock,
   LogIn,
   PackagePlus,
   ShieldCheck,
   Sparkles,
   Truck,
+  Unlock,
+  UserCheck,
 } from 'lucide-react';
 import {
   advanceOrderStatus,
+  assignOrderDispatcher,
   createCommodity,
   listUsersForAdmin,
   updateCommodityStock,
@@ -81,6 +85,8 @@ const IMAGE_PRESETS: Record<CommodityCategory, string> = {
   'Botanical & Oud Oils': PHOTO_OPTIONS[6].imageUrl,
 };
 
+type ConsoleTab = 'inventory' | 'dispatch' | 'roles';
+
 export function DispatchConsoleView({
   user,
   commodities,
@@ -89,7 +95,12 @@ export function DispatchConsoleView({
   onSeedDemo,
   seeding,
 }: DispatchConsoleViewProps) {
-  const [activeTab, setActiveTab] = useState<'dispatch' | 'inventory' | 'roles'>('dispatch');
+  const isAdmin = user?.role === 'admin';
+  const isDispatcherOnly = user?.role === 'dispatcher';
+  const isPrivileged = isAdmin || isDispatcherOnly;
+
+  // Admins land on Vault Inventory; Dispatchers land on their Assigned Deliveries
+  const [activeTab, setActiveTab] = useState<ConsoleTab>(isAdmin ? 'inventory' : 'dispatch');
   const [statusFeedback, setStatusFeedback] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -98,6 +109,8 @@ export function DispatchConsoleView({
   const [locationDrafts, setLocationDrafts] = useState<Record<string, string>>({});
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [advancingId, setAdvancingId] = useState<string | null>(null);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [adminOverrideIds, setAdminOverrideIds] = useState<Record<string, boolean>>({});
 
   const [stockDrafts, setStockDrafts] = useState<Record<string, string>>({});
   const [restockingId, setRestockingId] = useState<string | null>(null);
@@ -116,16 +129,26 @@ export function DispatchConsoleView({
 
   const [teamUsers, setTeamUsers] = useState<UserProfile[]>([]);
 
-  const isPrivileged = user?.role === 'admin' || user?.role === 'dispatcher';
-  const isAdmin = user?.role === 'admin';
+  useEffect(() => {
+    if (isDispatcherOnly) {
+      setActiveTab((curr) => (curr === 'roles' ? 'dispatch' : curr));
+    } else if (isAdmin) {
+      setActiveTab((curr) => (curr === 'dispatch' ? 'inventory' : curr));
+    }
+  }, [isAdmin, isDispatcherOnly]);
 
   useEffect(() => {
-    if (isAdmin && activeTab === 'roles') {
+    if (isAdmin) {
       void listUsersForAdmin()
         .then(setTeamUsers)
         .catch(() => setTeamUsers([]));
     }
   }, [isAdmin, activeTab]);
+
+  const dispatchersList = useMemo(
+    () => teamUsers.filter((m) => m.role === 'dispatcher' || m.role === 'admin'),
+    [teamUsers]
+  );
 
   if (!user) {
     return (
@@ -135,8 +158,8 @@ export function DispatchConsoleView({
             Atelier Dispatch &amp; Vault Console
           </h1>
           <p className="text-sm text-stone-600 max-w-md mx-auto">
-            Sign in with an authorized atelier manager or courier account to restock fabrics and
-            perfumes or advance shipment milestones.
+            Sign in with an authorized administrator or courier dispatcher account to manage
+            inventory or advance assigned deliveries.
           </p>
           <button
             type="button"
@@ -165,13 +188,37 @@ export function DispatchConsoleView({
             You are signed in as <span className="font-medium text-zinc-900">{user.email}</span>{' '}
             with role <span className="font-mono font-semibold">{user.role}</span>. Only accounts
             assigned <span className="font-mono">dispatcher</span> or{' '}
-            <span className="font-mono">admin</span> permissions can modify boutique inventory or
-            advance delivery statuses.
+            <span className="font-mono">admin</span> permissions can open this workspace.
           </p>
         </div>
       </div>
     );
   }
+
+  const handleAssignDispatcher = async (order: Order, nextDispatcherUid: string) => {
+    if (!isAdmin) return;
+    const targetMember = dispatchersList.find((m) => m.uid === nextDispatcherUid);
+    const nextName = targetMember?.displayName || '';
+
+    setAssigningId(order.id);
+    setStatusFeedback(null);
+    try {
+      await assignOrderDispatcher(order.id, nextDispatcherUid, nextName);
+      setStatusFeedback({
+        type: 'success',
+        text: nextDispatcherUid
+          ? `Order ${order.orderReference} assigned to ${nextName}.`
+          : `Order ${order.orderReference} unassigned from courier.`,
+      });
+    } catch (err) {
+      setStatusFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to assign dispatcher.',
+      });
+    } finally {
+      setAssigningId(null);
+    }
+  };
 
   const handleAdvanceStatus = async (order: Order) => {
     const idx = ORDER_STATUS_FLOW.indexOf(order.status);
@@ -190,7 +237,7 @@ export function DispatchConsoleView({
 
     const notes =
       noteDrafts[order.id]?.trim() ||
-      `Parcel progressed to ${nextStage} by atelier team.`;
+      `Parcel progressed to ${nextStage} by ${isDispatcherOnly ? 'assigned dispatcher' : 'admin override'}.`;
 
     setAdvancingId(order.id);
     setStatusFeedback(null);
@@ -218,6 +265,7 @@ export function DispatchConsoleView({
   };
 
   const handleQuickRestock = async (commodity: Commodity, delta: number) => {
+    if (!isAdmin) return;
     setRestockingId(commodity.id);
     setStatusFeedback(null);
     try {
@@ -237,6 +285,7 @@ export function DispatchConsoleView({
   };
 
   const handleSetExactStock = async (commodity: Commodity) => {
+    if (!isAdmin) return;
     const raw = stockDrafts[commodity.id];
     const parsed = Number(raw);
     if (!Number.isFinite(parsed) || parsed < 0) return;
@@ -262,6 +311,7 @@ export function DispatchConsoleView({
 
   const handleCreateCommodity = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     setStatusFeedback(null);
     try {
       await createCommodity({
@@ -293,6 +343,7 @@ export function DispatchConsoleView({
   };
 
   const handleRoleChange = async (targetUid: string, nextRole: UserRole) => {
+    if (!isAdmin) return;
     try {
       await updateUserRoleByAdmin(targetUid, nextRole);
       setTeamUsers((prev) =>
@@ -312,26 +363,35 @@ export function DispatchConsoleView({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* Role-Specific Workspace Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200">
         <div>
           <h1 className="font-display text-3xl sm:text-4xl font-semibold text-zinc-900">
-            Atelier Dispatch &amp; Vault Console
+            {isAdmin ? 'Boutique Admin & Vault Console' : 'Courier Dispatch Desk'}
           </h1>
           <p className="text-sm text-stone-600 mt-1">
             Signed in as <span className="font-medium text-zinc-900">{user.displayName}</span> ·
-            Role: <span className="font-mono font-semibold text-zinc-900">{user.role}</span>
+            Role:{' '}
+            <span className="font-mono font-semibold text-zinc-900">{user.role}</span> ·{' '}
+            <span>
+              {isAdmin
+                ? 'Owns catalog, pricing, vault stock, team roles & dispatcher assignment'
+                : 'Owns fulfillment milestones & courier tracking on assigned orders'}
+            </span>
           </p>
         </div>
 
-        <button
-          type="button"
-          disabled={seeding}
-          onClick={() => void onSeedDemo()}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-stone-300 bg-white text-zinc-900 text-xs font-medium hover:bg-stone-50 disabled:opacity-60 cursor-pointer whitespace-nowrap shrink-0"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#7C5C38]" />
-          {seeding ? 'Syncing Catalog...' : 'Sync Fabric & Perfume Catalog'}
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            disabled={seeding}
+            onClick={() => void onSeedDemo()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-stone-300 bg-white text-zinc-900 text-xs font-medium hover:bg-stone-50 disabled:opacity-60 cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#7C5C38]" />
+            {seeding ? 'Syncing Catalog...' : 'Sync Fabric & Perfume Catalog'}
+          </button>
+        )}
       </div>
 
       {statusFeedback && (
@@ -351,51 +411,106 @@ export function DispatchConsoleView({
         </div>
       )}
 
-      {/* Segmented Console Tabs */}
-      <div className="inline-flex items-center gap-1 p-1 bg-stone-200/70 rounded-xl">
-        <button
-          type="button"
-          onClick={() => setActiveTab('dispatch')}
-          className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-            activeTab === 'dispatch' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
-          }`}
-        >
-          Courier Dispatch Queue ({orders.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('inventory')}
-          className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-            activeTab === 'inventory' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
-          }`}
-        >
-          Vault Inventory ({commodities.length})
-        </button>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => setActiveTab('roles')}
-            className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'roles' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
-            }`}
-          >
-            Team Roles
-          </button>
+      {/* Role-Scoped Console Tabs */}
+      <div className="inline-flex items-center gap-1 p-1 bg-stone-200/70 rounded-xl overflow-x-auto max-w-full">
+        {isAdmin ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setActiveTab('inventory')}
+              className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+                activeTab === 'inventory' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
+              }`}
+            >
+              Vault Inventory ({commodities.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('roles')}
+              className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+                activeTab === 'roles' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
+              }`}
+            >
+              Team Roles ({teamUsers.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('dispatch')}
+              className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+                activeTab === 'dispatch' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
+              }`}
+            >
+              Order Assignment &amp; Oversight ({orders.length})
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setActiveTab('dispatch')}
+              className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+                activeTab === 'dispatch' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
+              }`}
+            >
+              My Assigned Deliveries ({orders.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('inventory')}
+              className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+                activeTab === 'inventory' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
+              }`}
+            >
+              Stock Reference (Read-Only)
+            </button>
+          </>
         )}
       </div>
 
-      {/* Dispatch Queue Tab */}
+      {/* Dispatch Queue (Dispatcher) OR Order Assignment & Oversight (Admin) */}
       {activeTab === 'dispatch' && (
         <div className="space-y-4">
+          {isAdmin && (
+            <div className="bg-[#FAF8F5] border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-[#7C5C38] shrink-0" />
+                <span>
+                  Assign each incoming order to a <span className="font-mono font-semibold">dispatcher</span> below. Delivery progression stays locked from accidental admin edits unless you unlock override for an order.
+                </span>
+              </div>
+              {dispatchersList.filter((m) => m.role === 'dispatcher').length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('roles')}
+                  className="font-semibold text-zinc-900 underline whitespace-nowrap cursor-pointer self-start sm:self-auto"
+                >
+                  Promote a Dispatcher in Team Roles
+                </button>
+              )}
+            </div>
+          )}
+
           {orders.length === 0 ? (
-            <div className="bg-white border border-stone-200 rounded-xl p-8 text-center text-sm text-stone-600">
-              No orders in the atelier dispatch queue yet.
+            <div className="bg-white border border-stone-200 rounded-xl p-8 text-center space-y-2">
+              <p className="text-sm font-medium text-zinc-900">
+                {isDispatcherOnly
+                  ? 'No orders are currently assigned to you.'
+                  : 'No orders in the atelier dispatch queue yet.'}
+              </p>
+              {isDispatcherOnly && (
+                <p className="text-xs text-stone-500">
+                  Your administrator assigns orders to your courier account from the Admin Console so dispatchers never collide on the same parcel.
+                </p>
+              )}
             </div>
           ) : (
             orders.map((order) => {
               const idx = ORDER_STATUS_FLOW.indexOf(order.status);
               const nextStage = ORDER_STATUS_FLOW[idx + 1] || null;
               const isDelivered = order.status === 'Delivered';
+              const isAssigned = Boolean(order.assignedDispatcherUid);
+              const adminUnlocked = Boolean(adminOverrideIds[order.id]);
+              const canAdvanceNow = isDispatcherOnly || (isAdmin && adminUnlocked);
 
               return (
                 <div
@@ -431,50 +546,111 @@ export function DispatchConsoleView({
                     </div>
                   </div>
 
-                  {nextStage ? (
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                      <div className="md:col-span-4">
-                        <label className="block text-[11px] font-medium text-stone-500 mb-1">
-                          Checkpoint Location
+                  {/* Admin Assignment Bar */}
+                  {isAdmin && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FAF8F5] border border-stone-200 rounded-lg px-3.5 py-2.5">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <label
+                          htmlFor={`assign-${order.id}`}
+                          className="font-medium text-stone-700 whitespace-nowrap"
+                        >
+                          Assigned Dispatcher:
                         </label>
-                        <input
-                          type="text"
-                          value={locationDrafts[order.id] ?? ''}
-                          onChange={(e) =>
-                            setLocationDrafts((p) => ({ ...p, [order.id]: e.target.value }))
-                          }
-                          placeholder="e.g. Waiyaki Way · Westlands Courier"
-                          className="w-full px-3 py-2 text-xs bg-[#FAF8F5] border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
-                        />
+                        <select
+                          id={`assign-${order.id}`}
+                          disabled={assigningId === order.id}
+                          value={order.assignedDispatcherUid || ''}
+                          onChange={(e) => void handleAssignDispatcher(order, e.target.value)}
+                          className="px-2.5 py-1.5 text-xs bg-white border border-stone-300 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                        >
+                          <option value="">Unassigned (Admin Queue)</option>
+                          {dispatchersList.map((member) => (
+                            <option key={member.uid} value={member.uid}>
+                              {member.displayName} ({member.role})
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      <div className="md:col-span-5">
-                        <label className="block text-[11px] font-medium text-stone-500 mb-1">
-                          Atelier / Courier Note
-                        </label>
-                        <input
-                          type="text"
-                          value={noteDrafts[order.id] ?? ''}
-                          onChange={(e) =>
-                            setNoteDrafts((p) => ({ ...p, [order.id]: e.target.value }))
-                          }
-                          placeholder="e.g. Silk rolled on tissue tube; parcel sealed"
-                          className="w-full px-3 py-2 text-xs bg-[#FAF8F5] border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
-                        />
-                      </div>
-                      <div className="md:col-span-3">
+
+                      {nextStage && (
                         <button
                           type="button"
-                          disabled={advancingId === order.id}
-                          onClick={() => void handleAdvanceStatus(order)}
-                          className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 disabled:opacity-60 cursor-pointer whitespace-nowrap"
+                          onClick={() =>
+                            setAdminOverrideIds((prev) => ({
+                              ...prev,
+                              [order.id]: !prev[order.id],
+                            }))
+                          }
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-700 hover:text-zinc-900 cursor-pointer self-start sm:self-auto"
                         >
-                          <Truck className="w-3.5 h-3.5" />
-                          {advancingId === order.id
-                            ? 'Updating...'
-                            : `Mark ${nextStage}`}
+                          {adminUnlocked ? (
+                            <>
+                              <Unlock className="w-3.5 h-3.5 text-amber-700" />
+                              Lock Status Editing
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3.5 h-3.5 text-stone-500" />
+                              {isAssigned
+                                ? `Handled by ${order.assignedDispatcherName || 'Dispatcher'} · Override`
+                                : 'Unlock Admin Status Override'}
+                            </>
+                          )}
                         </button>
-                      </div>
+                      )}
                     </div>
+                  )}
+
+                  {nextStage ? (
+                    canAdvanceNow ? (
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                        <div className="md:col-span-4">
+                          <label className="block text-[11px] font-medium text-stone-500 mb-1">
+                            Checkpoint Location
+                          </label>
+                          <input
+                            type="text"
+                            value={locationDrafts[order.id] ?? ''}
+                            onChange={(e) =>
+                              setLocationDrafts((p) => ({ ...p, [order.id]: e.target.value }))
+                            }
+                            placeholder="e.g. Waiyaki Way · Westlands Courier"
+                            className="w-full px-3 py-2 text-xs bg-[#FAF8F5] border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
+                          />
+                        </div>
+                        <div className="md:col-span-5">
+                          <label className="block text-[11px] font-medium text-stone-500 mb-1">
+                            Atelier / Courier Note
+                          </label>
+                          <input
+                            type="text"
+                            value={noteDrafts[order.id] ?? ''}
+                            onChange={(e) =>
+                              setNoteDrafts((p) => ({ ...p, [order.id]: e.target.value }))
+                            }
+                            placeholder="e.g. Silk rolled on tissue tube; parcel sealed"
+                            className="w-full px-3 py-2 text-xs bg-[#FAF8F5] border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
+                          />
+                        </div>
+                        <div className="md:col-span-3">
+                          <button
+                            type="button"
+                            disabled={advancingId === order.id}
+                            onClick={() => void handleAdvanceStatus(order)}
+                            className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 disabled:opacity-60 cursor-pointer whitespace-nowrap"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            {advancingId === order.id ? 'Updating...' : `Mark ${nextStage}`}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-stone-500">
+                        {isAssigned
+                          ? `Fulfillment locked to ${order.assignedDispatcherName || 'assigned dispatcher'} to prevent overlapping updates.`
+                          : 'Assign a dispatcher above or click Unlock Admin Status Override to advance this order.'}
+                      </p>
+                    )
                   ) : (
                     <p className="text-xs text-emerald-800 font-medium flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4" />
@@ -488,21 +664,27 @@ export function DispatchConsoleView({
         </div>
       )}
 
-      {/* Inventory & Restock Tab */}
+      {/* Vault Inventory Tab: Editable for Admin, Read-Only Reference for Dispatcher */}
       {activeTab === 'inventory' && (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setShowAddForm((v) => !v)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 cursor-pointer"
-            >
-              <PackagePlus className="w-4 h-4" />
-              {showAddForm ? 'Cancel New Item' : 'Add Fabric or Perfume'}
-            </button>
-          </div>
+          {isAdmin ? (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAddForm((v) => !v)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 cursor-pointer"
+              >
+                <PackagePlus className="w-4 h-4" />
+                {showAddForm ? 'Cancel New Item' : 'Add Fabric or Perfume'}
+              </button>
+            </div>
+          ) : (
+            <div className="bg-[#FAF8F5] border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-700">
+              Read-only stock reference for packing verification. Only Administrators can add items, adjust prices, or restock vault quantities.
+            </div>
+          )}
 
-          {showAddForm && (
+          {isAdmin && showAddForm && (
             <form
               onSubmit={handleCreateCommodity}
               className="bg-white border border-stone-200 rounded-xl p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
@@ -641,7 +823,9 @@ export function DispatchConsoleView({
                   <th className="text-left font-medium px-4 py-3">Unit Price</th>
                   <th className="text-left font-medium px-4 py-3">Status</th>
                   <th className="text-right font-medium px-4 py-3">On Hand</th>
-                  <th className="text-right font-medium px-4 py-3">Restock Actions</th>
+                  {isAdmin && (
+                    <th className="text-right font-medium px-4 py-3">Restock Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -674,44 +858,46 @@ export function DispatchConsoleView({
                       <td className="px-4 py-3 text-right font-mono tabular-nums font-semibold text-zinc-900">
                         {c.stockQuantity}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            disabled={restockingId === c.id}
-                            onClick={() => void handleQuickRestock(c, 10)}
-                            className="px-2.5 py-1.5 rounded border border-stone-300 bg-white hover:bg-stone-50 font-mono text-[11px] font-medium cursor-pointer"
-                          >
-                            +10
-                          </button>
-                          <button
-                            type="button"
-                            disabled={restockingId === c.id}
-                            onClick={() => void handleQuickRestock(c, 25)}
-                            className="px-2.5 py-1.5 rounded border border-stone-300 bg-white hover:bg-stone-50 font-mono text-[11px] font-medium cursor-pointer"
-                          >
-                            +25
-                          </button>
-                          <input
-                            type="number"
-                            min={0}
-                            placeholder="Set"
-                            value={stockDrafts[c.id] ?? ''}
-                            onChange={(e) =>
-                              setStockDrafts((p) => ({ ...p, [c.id]: e.target.value }))
-                            }
-                            className="w-16 px-2 py-1.5 rounded border border-stone-300 font-mono text-[11px]"
-                          />
-                          <button
-                            type="button"
-                            disabled={restockingId === c.id || !stockDrafts[c.id]}
-                            onClick={() => void handleSetExactStock(c)}
-                            className="px-2.5 py-1.5 rounded bg-zinc-900 text-white text-[11px] font-medium hover:bg-zinc-800 disabled:opacity-40 cursor-pointer"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              disabled={restockingId === c.id}
+                              onClick={() => void handleQuickRestock(c, 10)}
+                              className="px-2.5 py-1.5 rounded border border-stone-300 bg-white hover:bg-stone-50 font-mono text-[11px] font-medium cursor-pointer"
+                            >
+                              +10
+                            </button>
+                            <button
+                              type="button"
+                              disabled={restockingId === c.id}
+                              onClick={() => void handleQuickRestock(c, 25)}
+                              className="px-2.5 py-1.5 rounded border border-stone-300 bg-white hover:bg-stone-50 font-mono text-[11px] font-medium cursor-pointer"
+                            >
+                              +25
+                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="Set"
+                              value={stockDrafts[c.id] ?? ''}
+                              onChange={(e) =>
+                                setStockDrafts((p) => ({ ...p, [c.id]: e.target.value }))
+                              }
+                              className="w-16 px-2 py-1.5 rounded border border-stone-300 font-mono text-[11px]"
+                            />
+                            <button
+                              type="button"
+                              disabled={restockingId === c.id || !stockDrafts[c.id]}
+                              onClick={() => void handleSetExactStock(c)}
+                              className="px-2.5 py-1.5 rounded bg-zinc-900 text-white text-[11px] font-medium hover:bg-zinc-800 disabled:opacity-40 cursor-pointer"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -721,46 +907,51 @@ export function DispatchConsoleView({
         </div>
       )}
 
-      {/* Team Roles Tab (Admin) */}
+      {/* Team Roles Tab (Admin Only) */}
       {activeTab === 'roles' && isAdmin && (
-        <div className="bg-white border border-stone-200 rounded-xl overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-[#FAF8F5] text-stone-600 border-b border-stone-200">
-              <tr>
-                <th className="text-left font-medium px-4 py-3">User</th>
-                <th className="text-left font-medium px-4 py-3">Email</th>
-                <th className="text-left font-medium px-4 py-3">Current Role</th>
-                <th className="text-right font-medium px-4 py-3">Assign Role</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {teamUsers.map((member) => (
-                <tr key={member.uid}>
-                  <td className="px-4 py-3 font-medium text-zinc-900">{member.displayName}</td>
-                  <td className="px-4 py-3 text-stone-600">{member.email}</td>
-                  <td className="px-4 py-3 font-mono text-zinc-900">
-                    <span className="inline-flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-[#7C5C38]" />
-                      {member.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <select
-                      value={member.role}
-                      onChange={(e) =>
-                        void handleRoleChange(member.uid, e.target.value as UserRole)
-                      }
-                      className="px-2.5 py-1.5 border border-stone-300 rounded-lg bg-white text-xs"
-                    >
-                      <option value="customer">customer</option>
-                      <option value="dispatcher">dispatcher</option>
-                      <option value="admin">admin</option>
-                    </select>
-                  </td>
+        <div className="space-y-3">
+          <div className="bg-[#FAF8F5] border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-700">
+            Assign <span className="font-mono font-semibold">dispatcher</span> to courier staff so they only access and update deliveries assigned to them without changing inventory prices or team permissions.
+          </div>
+          <div className="bg-white border border-stone-200 rounded-xl overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-[#FAF8F5] text-stone-600 border-b border-stone-200">
+                <tr>
+                  <th className="text-left font-medium px-4 py-3">User</th>
+                  <th className="text-left font-medium px-4 py-3">Email</th>
+                  <th className="text-left font-medium px-4 py-3">Current Role</th>
+                  <th className="text-right font-medium px-4 py-3">Assign Role</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {teamUsers.map((member) => (
+                  <tr key={member.uid}>
+                    <td className="px-4 py-3 font-medium text-zinc-900">{member.displayName}</td>
+                    <td className="px-4 py-3 text-stone-600">{member.email}</td>
+                    <td className="px-4 py-3 font-mono text-zinc-900">
+                      <span className="inline-flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#7C5C38]" />
+                        {member.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <select
+                        value={member.role}
+                        onChange={(e) =>
+                          void handleRoleChange(member.uid, e.target.value as UserRole)
+                        }
+                        className="px-2.5 py-1.5 border border-stone-300 rounded-lg bg-white text-xs"
+                      >
+                        <option value="customer">customer</option>
+                        <option value="dispatcher">dispatcher</option>
+                        <option value="admin">admin</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

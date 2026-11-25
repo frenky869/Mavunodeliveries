@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_reference VARCHAR(32) NOT NULL UNIQUE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  assigned_dispatcher_id UUID REFERENCES users(id) ON DELETE SET NULL,
   delivery_phone VARCHAR(30) NOT NULL,
   delivery_address VARCHAR(300) NOT NULL,
   delivery_notes VARCHAR(300) DEFAULT '',

@@ -103,7 +103,8 @@ service cloud.firestore {
       data.keys().hasOnly([
         'orderReference', 'customerUid', 'customerName', 'customerEmail', 'deliveryPhone',
         'deliveryAddress', 'deliveryNotes', 'status', 'subtotalAmount', 'deliveryFee',
-        'totalAmount', 'currency', 'itemCount', 'createdAt', 'updatedAt'
+        'totalAmount', 'currency', 'itemCount', 'assignedDispatcherUid', 'assignedDispatcherName',
+        'createdAt', 'updatedAt'
       ]) &&
       data.orderReference is string && data.orderReference.size() >= 6 && data.orderReference.size() <= 32 && data.orderReference.matches('^[A-Z0-9\\-]+$') &&
       data.customerUid is string && data.customerUid.size() >= 1 && data.customerUid.size() <= 128 && data.customerUid.matches('^[a-zA-Z0-9_\\-]+$') &&
@@ -118,6 +119,15 @@ service cloud.firestore {
       data.totalAmount is number && data.totalAmount >= 0 &&
       data.currency == 'KES' &&
       data.itemCount is number && data.itemCount >= 1 &&
+      (!('assignedDispatcherUid' in data) || (
+        data.assignedDispatcherUid is string &&
+        data.assignedDispatcherUid.size() <= 128 &&
+        (data.assignedDispatcherUid == '' || data.assignedDispatcherUid.matches('^[a-zA-Z0-9_\\-]+$'))
+      )) &&
+      (!('assignedDispatcherName' in data) || (
+        data.assignedDispatcherName is string &&
+        data.assignedDispatcherName.size() <= 100
+      )) &&
       data.createdAt is timestamp &&
       data.updatedAt is timestamp;
     }
@@ -198,12 +208,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Commodities catalog & real-time stock
+    // Commodities catalog & real-time stock (Admin owns catalog/pricing/restock; customers decrement stock on checkout)
     match /commodities/{commodityId} {
-      allow get: if isValidId(commodityId) && (existing().isActive == true || isDispatcher());
+      allow get: if isValidId(commodityId) && (existing().isActive == true || isAdmin());
       allow list: if existing().isActive == true || isBootstrapAdmin();
       allow create: if isValidId(commodityId) &&
-        isDispatcher() &&
+        isAdmin() &&
         isValidCommodity(incoming()) &&
         incoming().createdAt == request.time &&
         incoming().updatedAt == request.time;
@@ -214,7 +224,7 @@ service cloud.firestore {
         incoming().updatedAt == request.time &&
         (
           (
-            isDispatcher() &&
+            isAdmin() &&
             incoming().diff(existing()).affectedKeys().hasOnly([
               'sku', 'name', 'category', 'description', 'unitLabel', 'unitPrice', 'currency',
               'stockQuantity', 'lowStockThreshold', 'imageUrl', 'origin', 'isActive', 'updatedAt'
@@ -230,25 +240,35 @@ service cloud.firestore {
       allow delete: if isValidId(commodityId) && isAdmin();
     }
 
-    // Customer orders
+    // Customer orders (Admin assigns dispatchers; assigned Dispatcher advances fulfillment milestones)
     match /orders/{orderId} {
-      allow get: if isValidId(orderId) && isVerified() && (existing().customerUid == request.auth.uid || isDispatcher());
-      allow list: if isVerified() && (existing().customerUid == request.auth.uid || isBootstrapAdmin());
+      allow get: if isValidId(orderId) && isVerified() && (
+        existing().customerUid == request.auth.uid ||
+        ('assignedDispatcherUid' in existing() && existing().assignedDispatcherUid == request.auth.uid) ||
+        isAdmin()
+      );
+      allow list: if isVerified() && (
+        existing().customerUid == request.auth.uid ||
+        ('assignedDispatcherUid' in existing() && existing().assignedDispatcherUid == request.auth.uid) ||
+        isBootstrapAdmin()
+      );
       allow create: if isValidId(orderId) &&
         isVerified() &&
         isValidOrder(incoming()) &&
         incoming().createdAt == request.time &&
         incoming().updatedAt == request.time &&
         (
-          (incoming().customerUid == request.auth.uid && incoming().status == 'Order Placed') ||
+          (
+            incoming().customerUid == request.auth.uid &&
+            incoming().status == 'Order Placed' &&
+            (!('assignedDispatcherUid' in incoming()) || incoming().assignedDispatcherUid == '') &&
+            (!('assignedDispatcherName' in incoming()) || incoming().assignedDispatcherName == '')
+          ) ||
           isAdmin()
         );
       allow update: if isValidId(orderId) &&
         isVerified() &&
         isValidOrder(incoming()) &&
-        isDispatcher() &&
-        existing().status != 'Delivered' &&
-        isValidStatusTransition(existing().status, incoming().status) &&
         incoming().orderReference == existing().orderReference &&
         incoming().customerUid == existing().customerUid &&
         incoming().customerName == existing().customerName &&
@@ -263,7 +283,29 @@ service cloud.firestore {
         incoming().itemCount == existing().itemCount &&
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+        (
+          (
+            isAdmin() &&
+            incoming().status == existing().status &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['assignedDispatcherUid', 'assignedDispatcherName', 'updatedAt']) &&
+            (
+              incoming().assignedDispatcherUid == '' ||
+              (
+                exists(/databases/$(database)/documents/users/$(incoming().assignedDispatcherUid)) &&
+                get(/databases/$(database)/documents/users/$(incoming().assignedDispatcherUid)).data.role in ['dispatcher', 'admin']
+              )
+            )
+          ) ||
+          (
+            (
+              isAdmin() ||
+              (isDispatcher() && 'assignedDispatcherUid' in existing() && existing().assignedDispatcherUid == request.auth.uid)
+            ) &&
+            existing().status != 'Delivered' &&
+            isValidStatusTransition(existing().status, incoming().status) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
       allow delete: if false;
 
       // Order items subcollection
@@ -301,7 +343,12 @@ service cloud.firestore {
               getAfter(/databases/$(database)/documents/orders/$(orderId)).data.customerUid == request.auth.uid &&
               incoming().customerUid == request.auth.uid
             ) ||
-            isDispatcher()
+            isAdmin() ||
+            (
+              isDispatcher() &&
+              'assignedDispatcherUid' in get(/databases/$(database)/documents/orders/$(orderId)).data &&
+              get(/databases/$(database)/documents/orders/$(orderId)).data.assignedDispatcherUid == request.auth.uid
+            )
           );
         allow update, delete: if false;
       }

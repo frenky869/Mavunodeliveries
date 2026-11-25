@@ -19,6 +19,7 @@ import {
   subscribeAllOrdersForAdmin,
   subscribeCommodities,
   subscribeCustomerOrders,
+  subscribeDispatcherAssignedOrders,
 } from './services/firestoreService';
 import {
   ADMIN_BOOTSTRAP_EMAIL,
@@ -57,6 +58,7 @@ export default function App() {
   const [commoditiesLoading, setCommoditiesLoading] = useState(true);
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [dispatchOrders, setDispatchOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -261,20 +263,22 @@ export default function App() {
     }
   }, [commoditiesLoading, commodities, user]);
 
-  // 4. Real-time Orders Listener (when signed in)
+  // 4. Real-time Orders Listener (Customer orders + Role-scoped Dispatch Queue)
   useEffect(() => {
     if (!user) {
       setOrders([]);
+      setDispatchOrders([]);
       return;
     }
     setOrdersLoading(true);
     const isBootstrapAdmin =
       user.email.toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase();
 
-    const unsub = isBootstrapAdmin
+    const unsubOrders = isBootstrapAdmin
       ? subscribeAllOrdersForAdmin(
           (list) => {
             setOrders(list);
+            setDispatchOrders(list);
             setOrdersLoading(false);
           },
           () => setOrdersLoading(false)
@@ -288,7 +292,21 @@ export default function App() {
           () => setOrdersLoading(false)
         );
 
-    return () => unsub();
+    let unsubDispatch: (() => void) | null = null;
+    if (user.role === 'dispatcher' && !isBootstrapAdmin) {
+      unsubDispatch = subscribeDispatcherAssignedOrders(
+        user.uid,
+        (assigned) => setDispatchOrders(assigned),
+        () => setDispatchOrders([])
+      );
+    } else if (!isBootstrapAdmin) {
+      setDispatchOrders([]);
+    }
+
+    return () => {
+      unsubOrders();
+      unsubDispatch?.();
+    };
   }, [user]);
 
   const activeOrder = useMemo(() => {
@@ -638,7 +656,7 @@ export default function App() {
           <DispatchConsoleView
             user={user}
             commodities={displayCommodities}
-            orders={orders}
+            orders={dispatchOrders}
             onSignIn={() => openLoginPage('dispatch')}
             onSeedDemo={handleSeedDemo}
             seeding={seeding}
