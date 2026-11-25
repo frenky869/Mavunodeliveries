@@ -1,0 +1,310 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    function isBootstrapAdmin() {
+      return isVerified() && request.auth.token.email == 'martin.francis@students.jkuat.ac.ke';
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin() || (
+        isVerified() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isDispatcher() {
+      return isAdmin() || (
+        isVerified() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'dispatcher'
+      );
+    }
+
+    // Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll([
+        'uid', 'displayName', 'email', 'phone', 'defaultAddress', 'role', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'displayName', 'email', 'phone', 'defaultAddress', 'role', 'createdAt', 'updatedAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+      data.phone is string && data.phone.size() <= 30 &&
+      data.defaultAddress is string && data.defaultAddress.size() <= 300 &&
+      data.role in ['customer', 'dispatcher', 'admin'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidCommodity(data) {
+      return data.keys().hasAll([
+        'sku', 'name', 'category', 'description', 'unitLabel', 'unitPrice', 'currency',
+        'stockQuantity', 'lowStockThreshold', 'imageUrl', 'origin', 'isActive', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'sku', 'name', 'category', 'description', 'unitLabel', 'unitPrice', 'currency',
+        'stockQuantity', 'lowStockThreshold', 'imageUrl', 'origin', 'isActive', 'createdAt', 'updatedAt'
+      ]) &&
+      data.sku is string && data.sku.size() >= 2 && data.sku.size() <= 40 && data.sku.matches('^[A-Z0-9\\-]+$') &&
+      data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+      data.category in ['Grains & Cereals', 'Pulses & Legumes', 'Sugar & Sweeteners', 'Oils & Pantry'] &&
+      data.description is string && data.description.size() >= 5 && data.description.size() <= 500 &&
+      data.unitLabel is string && data.unitLabel.size() >= 2 && data.unitLabel.size() <= 40 &&
+      data.unitPrice is number && data.unitPrice >= 0 &&
+      data.currency == 'KES' &&
+      data.stockQuantity is number && data.stockQuantity >= 0 &&
+      data.lowStockThreshold is number && data.lowStockThreshold >= 0 &&
+      data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 300 &&
+      data.origin is string && data.origin.size() >= 2 && data.origin.size() <= 80 &&
+      data.isActive is bool &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+        'orderReference', 'customerUid', 'customerName', 'customerEmail', 'deliveryPhone',
+        'deliveryAddress', 'deliveryNotes', 'status', 'subtotalAmount', 'deliveryFee',
+        'totalAmount', 'currency', 'itemCount', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'orderReference', 'customerUid', 'customerName', 'customerEmail', 'deliveryPhone',
+        'deliveryAddress', 'deliveryNotes', 'status', 'subtotalAmount', 'deliveryFee',
+        'totalAmount', 'currency', 'itemCount', 'createdAt', 'updatedAt'
+      ]) &&
+      data.orderReference is string && data.orderReference.size() >= 6 && data.orderReference.size() <= 32 && data.orderReference.matches('^[A-Z0-9\\-]+$') &&
+      data.customerUid is string && data.customerUid.size() >= 1 && data.customerUid.size() <= 128 && data.customerUid.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+      data.customerEmail is string && data.customerEmail.size() >= 3 && data.customerEmail.size() <= 254 &&
+      data.deliveryPhone is string && data.deliveryPhone.size() >= 5 && data.deliveryPhone.size() <= 30 &&
+      data.deliveryAddress is string && data.deliveryAddress.size() >= 5 && data.deliveryAddress.size() <= 300 &&
+      data.deliveryNotes is string && data.deliveryNotes.size() <= 300 &&
+      data.status in ['Order Placed', 'Packed & Ready', 'In Transit', 'Out for Delivery', 'Delivered'] &&
+      data.subtotalAmount is number && data.subtotalAmount >= 0 &&
+      data.deliveryFee is number && data.deliveryFee >= 0 &&
+      data.totalAmount is number && data.totalAmount >= 0 &&
+      data.currency == 'KES' &&
+      data.itemCount is number && data.itemCount >= 1 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidOrderItem(data) {
+      return data.keys().hasAll([
+        'orderId', 'customerUid', 'commodityId', 'commodityName', 'unitLabel',
+        'quantity', 'unitPrice', 'lineTotal', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'orderId', 'customerUid', 'commodityId', 'commodityName', 'unitLabel',
+        'quantity', 'unitPrice', 'lineTotal', 'createdAt'
+      ]) &&
+      data.orderId is string && data.orderId.size() >= 1 && data.orderId.size() <= 128 && data.orderId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.customerUid is string && data.customerUid.size() >= 1 && data.customerUid.size() <= 128 && data.customerUid.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.commodityId is string && data.commodityId.size() >= 1 && data.commodityId.size() <= 128 && data.commodityId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.commodityName is string && data.commodityName.size() >= 1 && data.commodityName.size() <= 120 &&
+      data.unitLabel is string && data.unitLabel.size() >= 1 && data.unitLabel.size() <= 40 &&
+      data.quantity is number && data.quantity > 0 &&
+      data.unitPrice is number && data.unitPrice >= 0 &&
+      data.lineTotal is number && data.lineTotal >= 0 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidTrackingEvent(data) {
+      return data.keys().hasAll([
+        'orderId', 'customerUid', 'status', 'location', 'notes', 'updatedBy', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'orderId', 'customerUid', 'status', 'location', 'notes', 'updatedBy', 'createdAt'
+      ]) &&
+      data.orderId is string && data.orderId.size() >= 1 && data.orderId.size() <= 128 && data.orderId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.customerUid is string && data.customerUid.size() >= 1 && data.customerUid.size() <= 128 && data.customerUid.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.status in ['Order Placed', 'Packed & Ready', 'In Transit', 'Out for Delivery', 'Delivered'] &&
+      data.location is string && data.location.size() >= 2 && data.location.size() <= 150 &&
+      data.notes is string && data.notes.size() >= 2 && data.notes.size() <= 300 &&
+      data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 120 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidStatusTransition(prev, next) {
+      return (prev == 'Order Placed' && next == 'Packed & Ready') ||
+             (prev == 'Packed & Ready' && next == 'In Transit') ||
+             (prev == 'In Transit' && next == 'Out for Delivery') ||
+             (prev == 'Out for Delivery' && next == 'Delivered');
+    }
+
+    // Users collection (PII isolated to owner or admin)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrapAdmin();
+      allow create: if isVerified() &&
+        isValidId(userId) &&
+        userId == request.auth.uid &&
+        isValidUser(incoming()) &&
+        incoming().uid == request.auth.uid &&
+        (incoming().role == 'customer' || (isBootstrapAdmin() && incoming().role == 'admin')) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerified() &&
+        isValidId(userId) &&
+        isValidUser(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (
+            isOwner(userId) &&
+            incoming().role == existing().role &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'defaultAddress', 'updatedAt'])
+          ) ||
+          (
+            isAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'defaultAddress', 'role', 'updatedAt'])
+          )
+        );
+      allow delete: if false;
+    }
+
+    // Commodities catalog & real-time stock
+    match /commodities/{commodityId} {
+      allow get: if isValidId(commodityId) && (existing().isActive == true || isDispatcher());
+      allow list: if existing().isActive == true || isBootstrapAdmin();
+      allow create: if isValidId(commodityId) &&
+        isDispatcher() &&
+        isValidCommodity(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(commodityId) &&
+        isVerified() &&
+        isValidCommodity(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (
+            isDispatcher() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'sku', 'name', 'category', 'description', 'unitLabel', 'unitPrice', 'currency',
+              'stockQuantity', 'lowStockThreshold', 'imageUrl', 'origin', 'isActive', 'updatedAt'
+            ])
+          ) ||
+          (
+            existing().isActive == true &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['stockQuantity', 'updatedAt']) &&
+            incoming().stockQuantity >= 0 &&
+            incoming().stockQuantity < existing().stockQuantity
+          )
+        );
+      allow delete: if isValidId(commodityId) && isAdmin();
+    }
+
+    // Customer orders
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && isVerified() && (existing().customerUid == request.auth.uid || isDispatcher());
+      allow list: if isVerified() && (existing().customerUid == request.auth.uid || isBootstrapAdmin());
+      allow create: if isValidId(orderId) &&
+        isVerified() &&
+        isValidOrder(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          (incoming().customerUid == request.auth.uid && incoming().status == 'Order Placed') ||
+          isAdmin()
+        );
+      allow update: if isValidId(orderId) &&
+        isVerified() &&
+        isValidOrder(incoming()) &&
+        isDispatcher() &&
+        existing().status != 'Delivered' &&
+        isValidStatusTransition(existing().status, incoming().status) &&
+        incoming().orderReference == existing().orderReference &&
+        incoming().customerUid == existing().customerUid &&
+        incoming().customerName == existing().customerName &&
+        incoming().customerEmail == existing().customerEmail &&
+        incoming().deliveryPhone == existing().deliveryPhone &&
+        incoming().deliveryAddress == existing().deliveryAddress &&
+        incoming().deliveryNotes == existing().deliveryNotes &&
+        incoming().subtotalAmount == existing().subtotalAmount &&
+        incoming().deliveryFee == existing().deliveryFee &&
+        incoming().totalAmount == existing().totalAmount &&
+        incoming().currency == existing().currency &&
+        incoming().itemCount == existing().itemCount &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if false;
+
+      // Order items subcollection
+      match /items/{itemId} {
+        allow get: if isValidId(orderId) && isValidId(itemId) && isVerified() &&
+          (get(/databases/$(database)/documents/orders/$(orderId)).data.customerUid == request.auth.uid || isDispatcher());
+        allow list: if isVerified() && (existing().customerUid == request.auth.uid || isBootstrapAdmin());
+        allow create: if isValidId(orderId) && isValidId(itemId) && isVerified() &&
+          isValidOrderItem(incoming()) &&
+          incoming().orderId == orderId &&
+          incoming().createdAt == request.time &&
+          exists(/databases/$(database)/documents/commodities/$(incoming().commodityId)) &&
+          (
+            (
+              getAfter(/databases/$(database)/documents/orders/$(orderId)).data.customerUid == request.auth.uid &&
+              incoming().customerUid == request.auth.uid
+            ) ||
+            isAdmin()
+          );
+        allow update, delete: if false;
+      }
+
+      // Delivery tracking timeline subcollection
+      match /tracking/{eventId} {
+        allow get: if isValidId(orderId) && isValidId(eventId) && isVerified() &&
+          (get(/databases/$(database)/documents/orders/$(orderId)).data.customerUid == request.auth.uid || isDispatcher());
+        allow list: if isVerified() && (existing().customerUid == request.auth.uid || isBootstrapAdmin());
+        allow create: if isValidId(orderId) && isValidId(eventId) && isVerified() &&
+          isValidTrackingEvent(incoming()) &&
+          incoming().orderId == orderId &&
+          incoming().createdAt == request.time &&
+          (
+            (
+              incoming().status == 'Order Placed' &&
+              getAfter(/databases/$(database)/documents/orders/$(orderId)).data.customerUid == request.auth.uid &&
+              incoming().customerUid == request.auth.uid
+            ) ||
+            isDispatcher()
+          );
+        allow update, delete: if false;
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Mavuno Direct",
+  "description": "Agricultural and household commodities marketplace with real-time stock control, atomic order placement, and step-by-step delivery tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

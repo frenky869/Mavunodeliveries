@@ -1,0 +1,344 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered customer, dispatcher, or administrator profile.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "defaultAddress": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "role": {
+          "type": "string",
+          "enum": ["customer", "dispatcher", "admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "email", "phone", "defaultAddress", "role", "createdAt", "updatedAt"]
+    },
+    "Commodity": {
+      "title": "Commodity",
+      "description": "Agricultural or household commodity item with real-time stock level and unit pricing.",
+      "type": "object",
+      "properties": {
+        "sku": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Grains & Cereals", "Pulses & Legumes", "Sugar & Sweeteners", "Oils & Pantry"]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 500
+        },
+        "unitLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "unitPrice": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["KES"]
+        },
+        "stockQuantity": {
+          "type": "number"
+        },
+        "lowStockThreshold": {
+          "type": "number"
+        },
+        "imageUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "origin": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "isActive": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "sku",
+        "name",
+        "category",
+        "description",
+        "unitLabel",
+        "unitPrice",
+        "currency",
+        "stockQuantity",
+        "lowStockThreshold",
+        "imageUrl",
+        "origin",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer commodity order with delivery metadata and current fulfillment stage.",
+      "type": "object",
+      "properties": {
+        "orderReference": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 32,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "customerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "customerEmail": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "deliveryPhone": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 30
+        },
+        "deliveryAddress": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 300
+        },
+        "deliveryNotes": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Order Placed", "Packed & Ready", "In Transit", "Out for Delivery", "Delivered"]
+        },
+        "subtotalAmount": {
+          "type": "number"
+        },
+        "deliveryFee": {
+          "type": "number"
+        },
+        "totalAmount": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["KES"]
+        },
+        "itemCount": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "orderReference",
+        "customerUid",
+        "customerName",
+        "customerEmail",
+        "deliveryPhone",
+        "deliveryAddress",
+        "deliveryNotes",
+        "status",
+        "subtotalAmount",
+        "deliveryFee",
+        "totalAmount",
+        "currency",
+        "itemCount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OrderItem": {
+      "title": "OrderItem",
+      "description": "Line item belonging to a parent commodity order.",
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "customerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "commodityId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "commodityName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "unitLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "unitPrice": {
+          "type": "number"
+        },
+        "lineTotal": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "orderId",
+        "customerUid",
+        "commodityId",
+        "commodityName",
+        "unitLabel",
+        "quantity",
+        "unitPrice",
+        "lineTotal",
+        "createdAt"
+      ]
+    },
+    "DeliveryTrackingEvent": {
+      "title": "DeliveryTrackingEvent",
+      "description": "Timestamped delivery status milestone with depot or transit location notes.",
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "customerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Order Placed", "Packed & Ready", "In Transit", "Out for Delivery", "Delivered"]
+        },
+        "location": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 150
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 300
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["orderId", "customerUid", "status", "location", "notes", "updatedBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Customer, dispatcher, and administrator profiles with RBAC role."
+    },
+    "/commodities/{commodityId}": {
+      "schema": { "$ref": "#/entities/Commodity" },
+      "description": "Agricultural and household commodities with live stock counts."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Placed commodity orders and current fulfillment status."
+    },
+    "/orders/{orderId}/items/{itemId}": {
+      "schema": { "$ref": "#/entities/OrderItem" },
+      "description": "Normalized line items for each commodity order."
+    },
+    "/orders/{orderId}/tracking/{eventId}": {
+      "schema": { "$ref": "#/entities/DeliveryTrackingEvent" },
+      "description": "Append-only delivery tracking timeline entries for each order."
+    }
+  }
+}
