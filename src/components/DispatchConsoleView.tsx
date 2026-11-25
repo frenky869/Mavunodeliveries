@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Lock,
   LogIn,
   MapPin,
@@ -18,13 +20,16 @@ import {
   assignOrderDispatcher,
   createCommodity,
   listUsersForAdmin,
+  subscribeOrderTracking,
   updateCommodityStock,
   updateUserRoleByAdmin,
 } from '../services/firestoreService';
+import { CourierCheckpointLog } from './CourierCheckpointLog';
 import {
   COMMODITY_CATEGORIES,
   Commodity,
   CommodityCategory,
+  DeliveryTrackingEvent,
   formatKes,
   getStockAvailability,
   Order,
@@ -89,6 +94,56 @@ const IMAGE_PRESETS: Record<CommodityCategory, string> = {
 
 type ConsoleTab = 'dispatch' | 'inventory' | 'roles';
 type OrderQueueFilter = 'unassigned' | 'active' | 'delivered' | 'all';
+
+function OrderCheckpointPanel({
+  order,
+  viewer,
+}: {
+  order: Order;
+  viewer: UserProfile;
+}) {
+  const [events, setEvents] = useState<DeliveryTrackingEvent[]>([]);
+  const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    return subscribeOrderTracking(order, viewer, setEvents);
+  }, [order.id, order.customerUid, viewer.uid, viewer.email, viewer.role]);
+
+  return (
+    <div className="pt-3 border-t border-stone-100">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between text-xs font-medium text-stone-700 hover:text-zinc-900 cursor-pointer"
+      >
+        <span>
+          Parcel Checkpoint Timeline ({events.length}/{ORDER_STATUS_FLOW.length} logged)
+        </span>
+        <span className="inline-flex items-center gap-1 text-stone-500">
+          {expanded ? (
+            <>
+              Hide <ChevronUp className="w-3.5 h-3.5" />
+            </>
+          ) : (
+            <>
+              Show <ChevronDown className="w-3.5 h-3.5" />
+            </>
+          )}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 bg-[#FAF8F5] border border-stone-200 rounded-xl p-4">
+          <CourierCheckpointLog
+            currentStatus={order.status}
+            trackingEvents={events}
+            compact
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function DispatchConsoleView({
   user,
@@ -254,21 +309,25 @@ export function DispatchConsoleView({
     const nextStage = ORDER_STATUS_FLOW[idx + 1];
     if (!nextStage) return;
 
+    const rawLocation = locationDrafts[order.id]?.trim() || '';
     const location =
-      locationDrafts[order.id]?.trim() ||
-      (nextStage === 'Packed & Ready'
+      rawLocation.length >= 2
+        ? rawLocation
+        : nextStage === 'Packed & Ready'
         ? 'Sable & Silk Atelier Packing Desk'
         : nextStage === 'In Transit'
         ? 'Nairobi Dispatch Corridor'
         : nextStage === 'Out for Delivery'
         ? `En route to ${order.deliveryAddress}`
-        : order.deliveryAddress);
+        : order.deliveryAddress;
 
+    const rawNotes = noteDrafts[order.id]?.trim() || '';
     const notes =
-      noteDrafts[order.id]?.trim() ||
-      (nextStage === 'Delivered'
+      rawNotes.length >= 2
+        ? rawNotes
+        : nextStage === 'Delivered'
         ? `Parcel delivered to ${order.customerName} by ${user.displayName}.`
-        : `Parcel updated to ${nextStage} by ${user.displayName}.`);
+        : `Parcel updated to ${nextStage} by ${user.displayName}.`;
 
     setAdvancingId(order.id);
     setStatusFeedback(null);
@@ -819,6 +878,9 @@ export function DispatchConsoleView({
                       {order.assignedDispatcherName ? ` by ${order.assignedDispatcherName}` : ''}.
                     </p>
                   )}
+
+                  {/* Live Courier Checkpoint Log matching customer tracking timeline */}
+                  <OrderCheckpointPanel order={order} viewer={user} />
                 </div>
               );
             })

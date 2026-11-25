@@ -356,16 +356,105 @@ export async function assignOrderDispatcher(
   }
 }
 
+function sortTrackingEvents(events: DeliveryTrackingEvent[]): DeliveryTrackingEvent[] {
+  return [...events].sort((a, b) => {
+    const stageDiff =
+      ORDER_STATUS_FLOW.indexOf(a.status) - ORDER_STATUS_FLOW.indexOf(b.status);
+    if (stageDiff !== 0) return stageDiff;
+    const aMs =
+      a.createdAt && typeof a.createdAt.toMillis === 'function'
+        ? a.createdAt.toMillis()
+        : Number.MAX_SAFE_INTEGER;
+    const bMs =
+      b.createdAt && typeof b.createdAt.toMillis === 'function'
+        ? b.createdAt.toMillis()
+        : Number.MAX_SAFE_INTEGER;
+    return aMs - bMs;
+  });
+}
+
+export function subscribeOrderTracking(
+  order: Pick<Order, 'id' | 'customerUid'>,
+  viewer: Pick<UserProfile, 'uid' | 'email' | 'role'>,
+  onTracking: (events: DeliveryTrackingEvent[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  const isBootstrapAdmin =
+    viewer.email.toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase();
+  const isOrderOwner = viewer.uid === order.customerUid;
+
+  if (isBootstrapAdmin || isOrderOwner) {
+    const trackingQuery = isBootstrapAdmin
+      ? query(collection(db, 'orders', order.id, 'tracking'))
+      : query(
+          collection(db, 'orders', order.id, 'tracking'),
+          where('customerUid', '==', order.customerUid)
+        );
+
+    return onSnapshot(
+      trackingQuery,
+      (snap) => {
+        const events = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<DeliveryTrackingEvent, 'id'>),
+        }));
+        onTracking(sortTrackingEvents(events));
+      },
+      (err) => {
+        if (onError) {
+          onError(err);
+        } else {
+          handleFirestoreError(err, OperationType.LIST, `orders/${order.id}/tracking`);
+        }
+      }
+    );
+  }
+
+  // Delivery persons (dispatchers) and promoted admins read deterministic stage documents via `allow get`
+  const stageIds = ['evt_1', 'evt_2', 'evt_3', 'evt_4', 'evt_5'];
+  const eventMap = new Map<string, DeliveryTrackingEvent>();
+  const unsubs = stageIds.map((eventId) =>
+    onSnapshot(
+      doc(db, 'orders', order.id, 'tracking', eventId),
+      (snap) => {
+        if (snap.exists()) {
+          eventMap.set(eventId, {
+            id: snap.id,
+            ...(snap.data() as Omit<DeliveryTrackingEvent, 'id'>),
+          });
+        } else {
+          eventMap.delete(eventId);
+        }
+        onTracking(sortTrackingEvents(Array.from(eventMap.values())));
+      },
+      (err) => {
+        if (onError) {
+          onError(err);
+        }
+      }
+    )
+  );
+
+  return () => {
+    unsubs.forEach((unsub) => unsub());
+  };
+}
+
 export function subscribeOrderDetails(
-  orderId: string,
+  order: Pick<Order, 'id' | 'customerUid'>,
+  viewer: Pick<UserProfile, 'uid' | 'email' | 'role'>,
   onItems: (items: OrderItem[]) => void,
   onTracking: (events: DeliveryTrackingEvent[]) => void
 ): Unsubscribe {
-  const itemsQuery = query(collection(db, 'orders', orderId, 'items'));
-  const trackingQuery = query(
-    collection(db, 'orders', orderId, 'tracking'),
-    orderBy('createdAt', 'asc')
-  );
+  const isBootstrapAdmin =
+    viewer.email.toLowerCase() === ADMIN_BOOTSTRAP_EMAIL.toLowerCase();
+
+  const itemsQuery = isBootstrapAdmin
+    ? query(collection(db, 'orders', order.id, 'items'))
+    : query(
+        collection(db, 'orders', order.id, 'items'),
+        where('customerUid', '==', order.customerUid)
+      );
 
   const unsubItems = onSnapshot(
     itemsQuery,
@@ -377,21 +466,10 @@ export function subscribeOrderDetails(
         }))
       );
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, `orders/${orderId}/items`)
+    (err) => handleFirestoreError(err, OperationType.LIST, `orders/${order.id}/items`)
   );
 
-  const unsubTracking = onSnapshot(
-    trackingQuery,
-    (snap) => {
-      onTracking(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<DeliveryTrackingEvent, 'id'>),
-        }))
-      );
-    },
-    (err) => handleFirestoreError(err, OperationType.LIST, `orders/${orderId}/tracking`)
-  );
+  const unsubTracking = subscribeOrderTracking(order, viewer, onTracking);
 
   return () => {
     unsubItems();
@@ -413,7 +491,7 @@ export async function advanceOrderStatus(params: {
 
   const nextStatus = ORDER_STATUS_FLOW[currentIdx + 1];
   const orderRef = doc(db, 'orders', order.id);
-  const eventId = `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const eventId = `evt_${currentIdx + 2}`;
   const trackingRef = doc(db, 'orders', order.id, 'tracking', eventId);
 
   const batch = writeBatch(db);

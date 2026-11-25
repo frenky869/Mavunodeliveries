@@ -1,25 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Check,
-  CheckCircle2,
-  Clock,
   Copy,
   LogIn,
-  MapPin,
-  PackageCheck,
   RotateCcw,
   Search,
   Settings,
-  Truck,
 } from 'lucide-react';
 import { subscribeOrderDetails } from '../services/firestoreService';
+import { CourierCheckpointLog, getOrderStageIcon } from './CourierCheckpointLog';
 import {
   DeliveryTrackingEvent,
   formatKes,
   Order,
   OrderItem,
   ORDER_STATUS_FLOW,
-  OrderStatus,
   UserProfile,
 } from '../types/commerce';
 
@@ -36,25 +31,11 @@ interface OrdersTrackingViewProps {
 }
 
 function formatTimestamp(ts?: { toDate?: () => Date }): string {
-  if (!ts || typeof ts.toDate !== 'function') return 'Pending timestamp';
+  if (!ts || typeof ts.toDate !== 'function') return 'Just now';
   return ts.toDate().toLocaleString('en-KE', {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
-}
-
-function getStatusIcon(status: OrderStatus) {
-  switch (status) {
-    case 'Delivered':
-      return CheckCircle2;
-    case 'In Transit':
-    case 'Out for Delivery':
-      return Truck;
-    case 'Packed & Ready':
-      return PackageCheck;
-    default:
-      return Clock;
-  }
 }
 
 export function OrdersTrackingView({
@@ -103,13 +84,13 @@ export function OrdersTrackingView({
   }, [orders, filteredOrders, selectedOrderId]);
 
   useEffect(() => {
-    if (!activeOrder) {
+    if (!activeOrder || !user) {
       setItems([]);
       setTrackingEvents([]);
       return;
     }
-    return subscribeOrderDetails(activeOrder.id, setItems, setTrackingEvents);
-  }, [activeOrder?.id]);
+    return subscribeOrderDetails(activeOrder, user, setItems, setTrackingEvents);
+  }, [activeOrder?.id, activeOrder?.customerUid, user?.uid, user?.role, user?.email]);
 
   const handleCopyRef = async (ref: string) => {
     try {
@@ -230,7 +211,7 @@ export function OrdersTrackingView({
             ) : (
               filteredOrders.map((order) => {
                 const isSelected = activeOrder?.id === order.id;
-                const Icon = getStatusIcon(order.status);
+                const Icon = getOrderStageIcon(order.status);
                 return (
                   <button
                     key={order.id}
@@ -353,79 +334,11 @@ export function OrdersTrackingView({
               </div>
 
               {/* Detailed Step-by-Step Delivery Timeline */}
-              <div className="space-y-4 pt-2 border-t border-stone-100">
-                <h3 className="font-display text-2xl font-semibold text-zinc-900">
-                  Courier Checkpoint Log
-                </h3>
-
-                <ol className="space-y-4">
-                  {ORDER_STATUS_FLOW.map((stage, index) => {
-                    const completed = index <= currentStageIndex;
-                    const isCurrent = index === currentStageIndex;
-                    const event = [...trackingEvents]
-                      .reverse()
-                      .find((ev) => ev.status === stage);
-                    const StageIcon = getStatusIcon(stage);
-
-                    return (
-                      <li key={stage} className="flex gap-4">
-                        <div className="flex flex-col items-center">
-                          <div
-                            className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${
-                              completed
-                                ? 'bg-zinc-900 border-zinc-900 text-white'
-                                : 'bg-[#FAF8F5] border-stone-300 text-stone-400'
-                            }`}
-                          >
-                            <StageIcon className="w-4 h-4" />
-                          </div>
-                          {index < ORDER_STATUS_FLOW.length - 1 && (
-                            <div
-                              className={`w-px flex-1 min-h-[24px] mt-1 ${
-                                index < currentStageIndex ? 'bg-zinc-900' : 'bg-stone-200'
-                              }`}
-                            />
-                          )}
-                        </div>
-
-                        <div className="pb-4 flex-1 min-w-0">
-                          <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            <p
-                              className={`text-sm font-semibold ${
-                                completed ? 'text-zinc-900' : 'text-stone-400'
-                              }`}
-                            >
-                              {stage}
-                              {isCurrent ? ' (Current)' : ''}
-                            </p>
-                            <span className="text-xs font-mono text-stone-500">
-                              {event ? formatTimestamp(event.createdAt) : 'Pending'}
-                            </span>
-                          </div>
-
-                          {event ? (
-                            <div className="mt-1 space-y-1">
-                              <p className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-700">
-                                <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                                {event.location}
-                              </p>
-                              <p className="text-xs text-stone-600 leading-relaxed">
-                                {event.notes}
-                              </p>
-                              <p className="text-[11px] text-stone-400">
-                                Logged by {event.updatedBy}
-                              </p>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-stone-400 mt-1">
-                              Awaiting atelier dispatch update.
-                            </p>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
+              <div className="pt-2 border-t border-stone-100">
+                <CourierCheckpointLog
+                  currentStatus={activeOrder.status}
+                  trackingEvents={trackingEvents}
+                />
               </div>
 
               {/* Itemized Receipt & Delivery Destination */}
