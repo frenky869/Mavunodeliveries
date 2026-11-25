@@ -430,7 +430,7 @@ export function OrdersTrackingView({
 
               {/* Itemized Receipt & Delivery Destination */}
               <div className="pt-6 border-t border-stone-200 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-[#FAF8F5] p-4 rounded-xl border border-stone-200">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-[#FAF8F5] p-4 rounded-xl border border-stone-200">
                   <div>
                     <p className="text-stone-500">Delivery Address</p>
                     <p className="font-medium text-zinc-900 mt-0.5">
@@ -446,6 +446,17 @@ export function OrdersTrackingView({
                       {activeOrder.customerName} · {activeOrder.deliveryPhone}
                     </p>
                     <p className="text-stone-600 mt-0.5">{activeOrder.customerEmail}</p>
+                  </div>
+                  <div>
+                    <p className="text-stone-500">Delivery Person</p>
+                    <p className="font-medium text-zinc-900 mt-0.5">
+                      {activeOrder.assignedDispatcherName || 'Awaiting Admin assignment'}
+                    </p>
+                    <p className="text-stone-600 mt-0.5">
+                      {activeOrder.assignedDispatcherUid
+                        ? 'Updating parcel progress live'
+                        : 'Admin will assign a courier shortly'}
+                    </p>
                   </div>
                 </div>
 

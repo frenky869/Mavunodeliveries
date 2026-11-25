@@ -4,7 +4,9 @@ import {
   CheckCircle2,
   Lock,
   LogIn,
+  MapPin,
   PackagePlus,
+  Phone,
   ShieldCheck,
   Sparkles,
   Truck,
@@ -85,7 +87,8 @@ const IMAGE_PRESETS: Record<CommodityCategory, string> = {
   'Botanical & Oud Oils': PHOTO_OPTIONS[6].imageUrl,
 };
 
-type ConsoleTab = 'inventory' | 'dispatch' | 'roles';
+type ConsoleTab = 'dispatch' | 'inventory' | 'roles';
+type OrderQueueFilter = 'unassigned' | 'active' | 'delivered' | 'all';
 
 export function DispatchConsoleView({
   user,
@@ -99,8 +102,10 @@ export function DispatchConsoleView({
   const isDispatcherOnly = user?.role === 'dispatcher';
   const isPrivileged = isAdmin || isDispatcherOnly;
 
-  // Admins land on Vault Inventory; Dispatchers land on their Assigned Deliveries
-  const [activeTab, setActiveTab] = useState<ConsoleTab>(isAdmin ? 'inventory' : 'dispatch');
+  // Both Admin and Delivery Person land on Orders first:
+  // Admin sees incoming orders to assign a delivery person; Delivery Person sees their assigned parcels.
+  const [activeTab, setActiveTab] = useState<ConsoleTab>('dispatch');
+  const [orderFilter, setOrderFilter] = useState<OrderQueueFilter>('all');
   const [statusFeedback, setStatusFeedback] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -132,10 +137,9 @@ export function DispatchConsoleView({
   useEffect(() => {
     if (isDispatcherOnly) {
       setActiveTab((curr) => (curr === 'roles' ? 'dispatch' : curr));
-    } else if (isAdmin) {
-      setActiveTab((curr) => (curr === 'dispatch' ? 'inventory' : curr));
+      setOrderFilter((curr) => (curr === 'unassigned' ? 'active' : curr));
     }
-  }, [isAdmin, isDispatcherOnly]);
+  }, [isDispatcherOnly]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -145,21 +149,46 @@ export function DispatchConsoleView({
     }
   }, [isAdmin, activeTab]);
 
-  const dispatchersList = useMemo(
-    () => teamUsers.filter((m) => m.role === 'dispatcher' || m.role === 'admin'),
-    [teamUsers]
-  );
+  const deliveryStaffList = useMemo(() => {
+    const dispatchers = teamUsers.filter((m) => m.role === 'dispatcher');
+    const admins = teamUsers.filter((m) => m.role === 'admin');
+    return [...dispatchers, ...admins];
+  }, [teamUsers]);
+
+  const orderCounts = useMemo(() => {
+    const unassigned = orders.filter(
+      (o) => !o.assignedDispatcherUid && o.status !== 'Delivered'
+    ).length;
+    const active = orders.filter(
+      (o) => Boolean(o.assignedDispatcherUid) && o.status !== 'Delivered'
+    ).length;
+    const delivered = orders.filter((o) => o.status === 'Delivered').length;
+    return { unassigned, active, delivered, all: orders.length };
+  }, [orders]);
+
+  const visibleOrders = useMemo(() => {
+    if (orderFilter === 'unassigned') {
+      return orders.filter((o) => !o.assignedDispatcherUid && o.status !== 'Delivered');
+    }
+    if (orderFilter === 'active') {
+      return orders.filter((o) => o.status !== 'Delivered' && (isDispatcherOnly || Boolean(o.assignedDispatcherUid)));
+    }
+    if (orderFilter === 'delivered') {
+      return orders.filter((o) => o.status === 'Delivered');
+    }
+    return orders;
+  }, [orders, orderFilter, isDispatcherOnly]);
 
   if (!user) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16">
         <div className="bg-white border border-stone-200 rounded-2xl p-8 sm:p-10 text-center space-y-4">
           <h1 className="font-display text-3xl font-semibold text-zinc-900">
-            Atelier Dispatch &amp; Vault Console
+            Admin &amp; Delivery Portal
           </h1>
           <p className="text-sm text-stone-600 max-w-md mx-auto">
-            Sign in with an authorized administrator or courier dispatcher account to manage
-            inventory or advance assigned deliveries.
+            Sign in as an Administrator to assign incoming orders and manage stock, or as a
+            Delivery Person (dispatcher) to update parcel progress until delivery.
           </p>
           <button
             type="button"
@@ -181,14 +210,14 @@ export function DispatchConsoleView({
           <div className="flex items-center gap-2.5 text-amber-800">
             <AlertTriangle className="w-5 h-5" />
             <h1 className="font-display text-2xl font-semibold text-zinc-900">
-              Dispatcher or Admin Role Required
+              Delivery Person or Admin Role Required
             </h1>
           </div>
           <p className="text-sm text-stone-600 leading-relaxed">
             You are signed in as <span className="font-medium text-zinc-900">{user.email}</span>{' '}
             with role <span className="font-mono font-semibold">{user.role}</span>. Only accounts
-            assigned <span className="font-mono">dispatcher</span> or{' '}
-            <span className="font-mono">admin</span> permissions can open this workspace.
+            assigned <span className="font-mono">dispatcher</span> (delivery person) or{' '}
+            <span className="font-mono">admin</span> permissions can open this portal.
           </p>
         </div>
       </div>
@@ -197,7 +226,7 @@ export function DispatchConsoleView({
 
   const handleAssignDispatcher = async (order: Order, nextDispatcherUid: string) => {
     if (!isAdmin) return;
-    const targetMember = dispatchersList.find((m) => m.uid === nextDispatcherUid);
+    const targetMember = deliveryStaffList.find((m) => m.uid === nextDispatcherUid);
     const nextName = targetMember?.displayName || '';
 
     setAssigningId(order.id);
@@ -207,13 +236,13 @@ export function DispatchConsoleView({
       setStatusFeedback({
         type: 'success',
         text: nextDispatcherUid
-          ? `Order ${order.orderReference} assigned to ${nextName}.`
-          : `Order ${order.orderReference} unassigned from courier.`,
+          ? `Order ${order.orderReference} assigned to delivery person ${nextName}. They can now update parcel progress until Delivered.`
+          : `Order ${order.orderReference} unassigned from delivery person.`,
       });
     } catch (err) {
       setStatusFeedback({
         type: 'error',
-        text: err instanceof Error ? err.message : 'Failed to assign dispatcher.',
+        text: err instanceof Error ? err.message : 'Failed to assign delivery person.',
       });
     } finally {
       setAssigningId(null);
@@ -228,16 +257,18 @@ export function DispatchConsoleView({
     const location =
       locationDrafts[order.id]?.trim() ||
       (nextStage === 'Packed & Ready'
-        ? 'Lavington Tailoring & Fragrance Vault'
+        ? 'Sable & Silk Atelier Packing Desk'
         : nextStage === 'In Transit'
-        ? 'Waiyaki Way · Boutique Courier Corridor'
+        ? 'Nairobi Dispatch Corridor'
         : nextStage === 'Out for Delivery'
-        ? 'Local Climate-Controlled Courier Van'
+        ? `En route to ${order.deliveryAddress}`
         : order.deliveryAddress);
 
     const notes =
       noteDrafts[order.id]?.trim() ||
-      `Parcel progressed to ${nextStage} by ${isDispatcherOnly ? 'assigned dispatcher' : 'admin override'}.`;
+      (nextStage === 'Delivered'
+        ? `Parcel delivered to ${order.customerName} by ${user.displayName}.`
+        : `Parcel updated to ${nextStage} by ${user.displayName}.`);
 
     setAdvancingId(order.id);
     setStatusFeedback(null);
@@ -250,14 +281,17 @@ export function DispatchConsoleView({
       });
       setStatusFeedback({
         type: 'success',
-        text: `Order ${order.orderReference} advanced to ${nextStage}.`,
+        text:
+          nextStage === 'Delivered'
+            ? `Order ${order.orderReference} marked as Delivered!`
+            : `Order ${order.orderReference} updated to ${nextStage}.`,
       });
       setLocationDrafts((p) => ({ ...p, [order.id]: '' }));
       setNoteDrafts((p) => ({ ...p, [order.id]: '' }));
     } catch (err) {
       setStatusFeedback({
         type: 'error',
-        text: err instanceof Error ? err.message : 'Failed to advance order status.',
+        text: err instanceof Error ? err.message : 'Failed to update parcel progress.',
       });
     } finally {
       setAdvancingId(null);
@@ -351,7 +385,10 @@ export function DispatchConsoleView({
       );
       setStatusFeedback({
         type: 'success',
-        text: 'Team member role updated.',
+        text:
+          nextRole === 'dispatcher'
+            ? 'Account set to Delivery Person (dispatcher). They now appear in your delivery assignment dropdown.'
+            : 'Team member role updated.',
       });
     } catch (err) {
       setStatusFeedback({
@@ -367,16 +404,13 @@ export function DispatchConsoleView({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200">
         <div>
           <h1 className="font-display text-3xl sm:text-4xl font-semibold text-zinc-900">
-            {isAdmin ? 'Boutique Admin & Vault Console' : 'Courier Dispatch Desk'}
+            {isAdmin ? 'Admin Portal · Orders & Vault' : 'Delivery Person Portal'}
           </h1>
           <p className="text-sm text-stone-600 mt-1">
             Signed in as <span className="font-medium text-zinc-900">{user.displayName}</span> ·
             Role:{' '}
-            <span className="font-mono font-semibold text-zinc-900">{user.role}</span> ·{' '}
-            <span>
-              {isAdmin
-                ? 'Owns catalog, pricing, vault stock, team roles & dispatcher assignment'
-                : 'Owns fulfillment milestones & courier tracking on assigned orders'}
+            <span className="font-mono font-semibold text-zinc-900">
+              {isDispatcherOnly ? 'delivery person (dispatcher)' : user.role}
             </span>
           </p>
         </div>
@@ -417,12 +451,13 @@ export function DispatchConsoleView({
           <>
             <button
               type="button"
-              onClick={() => setActiveTab('inventory')}
+              onClick={() => setActiveTab('dispatch')}
               className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-                activeTab === 'inventory' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
+                activeTab === 'dispatch' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
               }`}
             >
-              Vault Inventory ({commodities.length})
+              Incoming Orders &amp; Assignment ({orders.length}
+              {orderCounts.unassigned > 0 ? ` · ${orderCounts.unassigned} new` : ''})
             </button>
             <button
               type="button"
@@ -431,16 +466,16 @@ export function DispatchConsoleView({
                 activeTab === 'roles' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
               }`}
             >
-              Team Roles ({teamUsers.length})
+              Delivery Team &amp; Roles ({teamUsers.length})
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('dispatch')}
+              onClick={() => setActiveTab('inventory')}
               className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-                activeTab === 'dispatch' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
+                activeTab === 'inventory' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
               }`}
             >
-              Order Assignment &amp; Oversight ({orders.length})
+              Vault Inventory ({commodities.length})
             </button>
           </>
         ) : (
@@ -452,7 +487,7 @@ export function DispatchConsoleView({
                 activeTab === 'dispatch' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
               }`}
             >
-              My Assigned Deliveries ({orders.length})
+              My Assigned Parcels ({orders.length})
             </button>
             <button
               type="button"
@@ -467,44 +502,105 @@ export function DispatchConsoleView({
         )}
       </div>
 
-      {/* Dispatch Queue (Dispatcher) OR Order Assignment & Oversight (Admin) */}
+      {/* Orders Tab: Admin Assigns Delivery Person -> Delivery Person Updates Progress Till Delivery */}
       {activeTab === 'dispatch' && (
         <div className="space-y-4">
-          {isAdmin && (
+          {isAdmin ? (
             <div className="bg-[#FAF8F5] border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-[#7C5C38] shrink-0" />
                 <span>
-                  Assign each incoming order to a <span className="font-mono font-semibold">dispatcher</span> below. Delivery progression stays locked from accidental admin edits unless you unlock override for an order.
+                  New customer orders arrive here as <span className="font-semibold">Order Placed</span>. Assign a delivery person below—they will update parcel progress from Packed &amp; Ready through Delivered.
                 </span>
               </div>
-              {dispatchersList.filter((m) => m.role === 'dispatcher').length === 0 && (
+              {teamUsers.filter((m) => m.role === 'dispatcher').length === 0 && (
                 <button
                   type="button"
                   onClick={() => setActiveTab('roles')}
                   className="font-semibold text-zinc-900 underline whitespace-nowrap cursor-pointer self-start sm:self-auto"
                 >
-                  Promote a Dispatcher in Team Roles
+                  Add Delivery Person in Roles
                 </button>
               )}
             </div>
+          ) : (
+            <div className="bg-[#FAF8F5] border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-700 flex items-center gap-2">
+              <Truck className="w-4 h-4 text-[#7C5C38] shrink-0" />
+              <span>
+                Update each parcel assigned to you step-by-step: <span className="font-medium text-zinc-900">Packed &amp; Ready → In Transit → Out for Delivery → Delivered</span>.
+              </span>
+            </div>
           )}
 
-          {orders.length === 0 ? (
+          {/* Queue Filter Strip */}
+          {orders.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setOrderFilter('unassigned')}
+                  className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                    orderFilter === 'unassigned'
+                      ? 'bg-zinc-900 text-white border-zinc-900'
+                      : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+                  }`}
+                >
+                  Needs Delivery Person ({orderCounts.unassigned})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setOrderFilter('active')}
+                className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                  orderFilter === 'active'
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+                }`}
+              >
+                {isAdmin ? `In Progress (${orderCounts.active})` : `Active Deliveries (${orderCounts.active})`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderFilter('delivered')}
+                className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                  orderFilter === 'delivered'
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+                }`}
+              >
+                Delivered ({orderCounts.delivered})
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderFilter('all')}
+                className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                  orderFilter === 'all'
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+                }`}
+              >
+                All ({orderCounts.all})
+              </button>
+            </div>
+          )}
+
+          {visibleOrders.length === 0 ? (
             <div className="bg-white border border-stone-200 rounded-xl p-8 text-center space-y-2">
               <p className="text-sm font-medium text-zinc-900">
-                {isDispatcherOnly
-                  ? 'No orders are currently assigned to you.'
-                  : 'No orders in the atelier dispatch queue yet.'}
+                {orders.length === 0
+                  ? isDispatcherOnly
+                    ? 'No parcels assigned to you yet.'
+                    : 'No customer orders placed yet.'
+                  : 'No orders match this filter.'}
               </p>
-              {isDispatcherOnly && (
+              {orders.length === 0 && isDispatcherOnly && (
                 <p className="text-xs text-stone-500">
-                  Your administrator assigns orders to your courier account from the Admin Console so dispatchers never collide on the same parcel.
+                  Once the Admin assigns a customer order to your account, it will appear here immediately so you can update its progress until delivery.
                 </p>
               )}
             </div>
           ) : (
-            orders.map((order) => {
+            visibleOrders.map((order) => {
               const idx = ORDER_STATUS_FLOW.indexOf(order.status);
               const nextStage = ORDER_STATUS_FLOW[idx + 1] || null;
               const isDelivered = order.status === 'Delivered';
@@ -517,22 +613,42 @@ export function DispatchConsoleView({
                   key={order.id}
                   className="bg-white border border-stone-200 rounded-xl p-5 space-y-4"
                 >
+                  {/* Order Summary Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-stone-100">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-zinc-900">
-                        {order.orderReference}
-                      </span>
-                      <span aria-hidden="true" className="text-stone-300">
-                        ·
-                      </span>
-                      <span className="text-xs text-stone-600">{order.customerName}</span>
-                      <span aria-hidden="true" className="text-stone-300">
-                        ·
-                      </span>
-                      <span className="text-xs text-stone-600">{order.deliveryAddress}</span>
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-zinc-900">
+                          {order.orderReference}
+                        </span>
+                        <span aria-hidden="true" className="text-stone-300">
+                          ·
+                        </span>
+                        <span className="text-xs font-medium text-zinc-900">
+                          {order.customerName}
+                        </span>
+                        <span aria-hidden="true" className="text-stone-300">
+                          ·
+                        </span>
+                        <span className="font-mono tabular-nums text-xs text-stone-600">
+                          {order.itemCount} items
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-stone-600">
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                          {order.deliveryAddress}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Phone className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                          {order.deliveryPhone}
+                        </span>
+                      </div>
+                      {order.deliveryNotes && (
+                        <p className="text-xs text-stone-500">Note: {order.deliveryNotes}</p>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 self-start sm:self-center">
                       <span className="font-mono tabular-nums text-sm font-semibold text-zinc-900">
                         {formatKes(order.totalAmount)}
                       </span>
@@ -546,7 +662,31 @@ export function DispatchConsoleView({
                     </div>
                   </div>
 
-                  {/* Admin Assignment Bar */}
+                  {/* Live 5-Stage Parcel Stepper */}
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {ORDER_STATUS_FLOW.map((stage, stageIdx) => {
+                      const reached = stageIdx <= idx;
+                      return (
+                        <div key={stage} className="space-y-1">
+                          <div
+                            className={`h-1.5 rounded-full transition-colors ${
+                              reached ? 'bg-zinc-900' : 'bg-stone-200'
+                            }`}
+                          />
+                          <p
+                            className={`text-[11px] truncate ${
+                              reached ? 'font-medium text-zinc-900' : 'text-stone-400'
+                            }`}
+                            title={stage}
+                          >
+                            {stage}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Admin Assignment Control */}
                   {isAdmin && (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FAF8F5] border border-stone-200 rounded-lg px-3.5 py-2.5">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -554,22 +694,26 @@ export function DispatchConsoleView({
                           htmlFor={`assign-${order.id}`}
                           className="font-medium text-stone-700 whitespace-nowrap"
                         >
-                          Assigned Dispatcher:
+                          Assign Delivery Person:
                         </label>
                         <select
                           id={`assign-${order.id}`}
-                          disabled={assigningId === order.id}
+                          disabled={assigningId === order.id || isDelivered}
                           value={order.assignedDispatcherUid || ''}
                           onChange={(e) => void handleAssignDispatcher(order, e.target.value)}
-                          className="px-2.5 py-1.5 text-xs bg-white border border-stone-300 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                          className="px-2.5 py-1.5 text-xs bg-white border border-stone-300 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer disabled:opacity-60"
                         >
-                          <option value="">Unassigned (Admin Queue)</option>
-                          {dispatchersList.map((member) => (
+                          <option value="">-- Select Delivery Person --</option>
+                          {deliveryStaffList.map((member) => (
                             <option key={member.uid} value={member.uid}>
-                              {member.displayName} ({member.role})
+                              {member.displayName} (
+                              {member.role === 'dispatcher' ? 'Delivery Person' : 'Admin'})
                             </option>
                           ))}
                         </select>
+                        {assigningId === order.id && (
+                          <span className="text-[11px] text-stone-500">Assigning...</span>
+                        )}
                       </div>
 
                       {nextStage && (
@@ -592,8 +736,8 @@ export function DispatchConsoleView({
                             <>
                               <Lock className="w-3.5 h-3.5 text-stone-500" />
                               {isAssigned
-                                ? `Handled by ${order.assignedDispatcherName || 'Dispatcher'} · Override`
-                                : 'Unlock Admin Status Override'}
+                                ? `With ${order.assignedDispatcherName || 'Delivery Person'} · Override`
+                                : 'Admin Override'}
                             </>
                           )}
                         </button>
@@ -601,6 +745,7 @@ export function DispatchConsoleView({
                     </div>
                   )}
 
+                  {/* Delivery Person Parcel Progress Controls */}
                   {nextStage ? (
                     canAdvanceNow ? (
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
@@ -614,13 +759,17 @@ export function DispatchConsoleView({
                             onChange={(e) =>
                               setLocationDrafts((p) => ({ ...p, [order.id]: e.target.value }))
                             }
-                            placeholder="e.g. Waiyaki Way · Westlands Courier"
+                            placeholder={
+                              nextStage === 'Out for Delivery'
+                                ? order.deliveryAddress
+                                : 'e.g. Waiyaki Way · Westlands'
+                            }
                             className="w-full px-3 py-2 text-xs bg-[#FAF8F5] border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
                           />
                         </div>
                         <div className="md:col-span-5">
                           <label className="block text-[11px] font-medium text-stone-500 mb-1">
-                            Atelier / Courier Note
+                            Parcel Progress Note
                           </label>
                           <input
                             type="text"
@@ -628,7 +777,11 @@ export function DispatchConsoleView({
                             onChange={(e) =>
                               setNoteDrafts((p) => ({ ...p, [order.id]: e.target.value }))
                             }
-                            placeholder="e.g. Silk rolled on tissue tube; parcel sealed"
+                            placeholder={
+                              nextStage === 'Delivered'
+                                ? 'Handed over to recipient in good condition'
+                                : 'e.g. Parcel packed and dispatched with courier'
+                            }
                             className="w-full px-3 py-2 text-xs bg-[#FAF8F5] border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
                           />
                         </div>
@@ -639,22 +792,31 @@ export function DispatchConsoleView({
                             onClick={() => void handleAdvanceStatus(order)}
                             className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 disabled:opacity-60 cursor-pointer whitespace-nowrap"
                           >
-                            <Truck className="w-3.5 h-3.5" />
-                            {advancingId === order.id ? 'Updating...' : `Mark ${nextStage}`}
+                            {nextStage === 'Delivered' ? (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            ) : (
+                              <Truck className="w-3.5 h-3.5" />
+                            )}
+                            {advancingId === order.id
+                              ? 'Updating...'
+                              : nextStage === 'Delivered'
+                              ? 'Confirm Delivered'
+                              : `Mark ${nextStage}`}
                           </button>
                         </div>
                       </div>
                     ) : (
                       <p className="text-xs text-stone-500">
                         {isAssigned
-                          ? `Fulfillment locked to ${order.assignedDispatcherName || 'assigned dispatcher'} to prevent overlapping updates.`
-                          : 'Assign a dispatcher above or click Unlock Admin Status Override to advance this order.'}
+                          ? `Assigned to ${order.assignedDispatcherName || 'delivery person'} — they will update parcel progress from their Delivery Portal.`
+                          : 'Select a delivery person above so this order appears in their Delivery Portal.'}
                       </p>
                     )
                   ) : (
                     <p className="text-xs text-emerald-800 font-medium flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4" />
-                      Courier handoff complete — client delivery confirmed.
+                      Delivered — parcel handoff completed
+                      {order.assignedDispatcherName ? ` by ${order.assignedDispatcherName}` : ''}.
                     </p>
                   )}
                 </div>
@@ -664,7 +826,7 @@ export function DispatchConsoleView({
         </div>
       )}
 
-      {/* Vault Inventory Tab: Editable for Admin, Read-Only Reference for Dispatcher */}
+      {/* Vault Inventory Tab: Editable for Admin, Read-Only Reference for Delivery Person */}
       {activeTab === 'inventory' && (
         <div className="space-y-4">
           {isAdmin ? (
@@ -907,11 +1069,14 @@ export function DispatchConsoleView({
         </div>
       )}
 
-      {/* Team Roles Tab (Admin Only) */}
+      {/* Delivery Team & Roles Tab (Admin Only) */}
       {activeTab === 'roles' && isAdmin && (
         <div className="space-y-3">
           <div className="bg-[#FAF8F5] border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-700">
-            Assign <span className="font-mono font-semibold">dispatcher</span> to courier staff so they only access and update deliveries assigned to them without changing inventory prices or team permissions.
+            Have your delivery person sign in once, then set their role to{' '}
+            <span className="font-mono font-semibold">dispatcher</span> below. They will immediately
+            appear in the <span className="font-semibold">Assign Delivery Person</span> dropdown on
+            every incoming order.
           </div>
           <div className="bg-white border border-stone-200 rounded-xl overflow-x-auto">
             <table className="w-full text-xs">
@@ -931,7 +1096,7 @@ export function DispatchConsoleView({
                     <td className="px-4 py-3 font-mono text-zinc-900">
                       <span className="inline-flex items-center gap-1">
                         <ShieldCheck className="w-3.5 h-3.5 text-[#7C5C38]" />
-                        {member.role}
+                        {member.role === 'dispatcher' ? 'delivery person (dispatcher)' : member.role}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -943,7 +1108,7 @@ export function DispatchConsoleView({
                         className="px-2.5 py-1.5 border border-stone-300 rounded-lg bg-white text-xs"
                       >
                         <option value="customer">customer</option>
-                        <option value="dispatcher">dispatcher</option>
+                        <option value="dispatcher">dispatcher (delivery person)</option>
                         <option value="admin">admin</option>
                       </select>
                     </td>

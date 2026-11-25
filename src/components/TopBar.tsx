@@ -42,11 +42,18 @@ export function TopBar({
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
 
+  const consoleLabel =
+    user?.role === 'admin'
+      ? 'Admin Portal'
+      : user?.role === 'dispatcher'
+      ? 'Delivery Portal'
+      : 'Atelier Console';
+
   const navItems: { id: AppView; label: string }[] = [
     { id: 'catalog', label: 'Collection' },
     { id: 'orders', label: 'My Orders' },
     { id: 'track', label: 'Track Delivery' },
-    { id: 'dispatch', label: 'Atelier Console' },
+    { id: 'dispatch', label: consoleLabel },
   ];
 
   return (
