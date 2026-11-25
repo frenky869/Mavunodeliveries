@@ -12,7 +12,7 @@ import {
   Truck,
   XCircle,
 } from 'lucide-react';
-import { HERO_WAREHOUSE_IMAGE } from '../data/seedCommodities';
+import { UPLOADED_FABRIC_GALLERY } from '../data/seedCommodities';
 import {
   CartItem,
   COMMODITY_CATEGORIES,
@@ -33,6 +33,7 @@ interface CatalogSectionProps {
   cart: CartItem[];
   activeOrder: Order | null;
   onAddToCart: (commodity: Commodity, quantity: number) => void;
+  onOrderNow: (commodity: Commodity, quantity: number) => void;
   onInspectCommodity: (commodity: Commodity) => void;
   onTrackRefSubmit: (refCode: string) => void;
   user: UserProfile | null;
@@ -47,6 +48,7 @@ export function CatalogSection({
   cart,
   activeOrder,
   onAddToCart,
+  onOrderNow,
   onInspectCommodity,
   onTrackRefSubmit,
   user,
@@ -61,6 +63,10 @@ export function CatalogSection({
   const [draftQuantities, setDraftQuantities] = useState<Record<string, number>>({});
   const [quickRef, setQuickRef] = useState('');
   const [addedFeedbackId, setAddedFeedbackId] = useState<string | null>(null);
+  const [heroGalleryIdx, setHeroGalleryIdx] = useState(0);
+
+  const activeHeroSlide =
+    UPLOADED_FABRIC_GALLERY[heroGalleryIdx] ?? UPLOADED_FABRIC_GALLERY[0];
 
   const cartQtyMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -119,6 +125,15 @@ export function CatalogSection({
     }, 1500);
   };
 
+  const handleDirectOrder = (commodity: Commodity) => {
+    if (commodity.stockQuantity <= 0) return;
+    const inCart = cartQtyMap[commodity.id] || 0;
+    const maxAddable = Math.max(0, commodity.stockQuantity - inCart);
+    const requested = maxAddable > 0 ? Math.min(maxAddable, draftQuantities[commodity.id] ?? 1) : 0;
+    onOrderNow(commodity, requested);
+    setDraftQuantities((prev) => ({ ...prev, [commodity.id]: 1 }));
+  };
+
   const handleTrackForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickRef.trim()) return;
@@ -132,25 +147,25 @@ export function CatalogSection({
 
   return (
     <div className="space-y-12 pb-16">
-      {/* Contextual Active Shipment Bar for Signed-In Customers */}
+      {/* Contextual Active Shipment Bar for Signed-In Clients */}
       {user && activeOrder && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
           <div className="bg-white border border-stone-200 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5 text-xs">
-              <Truck className="w-4 h-4 text-emerald-900 shrink-0" />
-              <span className="text-stone-600">Active shipment:</span>
+              <Truck className="w-4 h-4 text-[#7C5C38] shrink-0" />
+              <span className="text-stone-600">Active dispatch:</span>
               <span className="font-mono font-semibold text-zinc-900">
                 {activeOrder.orderReference}
               </span>
               <span aria-hidden="true" className="text-stone-300">
                 ·
               </span>
-              <span className="font-medium text-emerald-900">{activeOrder.status}</span>
+              <span className="font-medium text-zinc-900">{activeOrder.status}</span>
             </div>
             <button
               type="button"
               onClick={() => onTrackRefSubmit(activeOrder.orderReference)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-900 hover:text-emerald-700 cursor-pointer whitespace-nowrap self-start sm:self-auto"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-900 hover:text-[#7C5C38] cursor-pointer whitespace-nowrap self-start sm:self-auto"
             >
               View Live Timeline
               <ArrowRight className="w-3.5 h-3.5" />
@@ -165,23 +180,23 @@ export function CatalogSection({
           <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between gap-8">
             <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-stone-500">
-                <span>Nairobi Central Depot</span>
+                <span>Lavington Atelier</span>
                 <span aria-hidden="true">·</span>
-                <span>Wholesale & Household Staples</span>
+                <span>Couture Textiles &amp; Fine Perfumery</span>
                 <span aria-hidden="true">·</span>
                 <span className="font-mono tabular-nums text-stone-700">
-                  {commodities.length} Active SKUs
+                  {commodities.length} Curated Pieces
                 </span>
               </div>
 
-              <h1 className="font-display text-3xl sm:text-4xl lg:text-[2.85rem] font-bold tracking-tight text-zinc-900 leading-[1.12] [text-wrap:balance]">
-                Verified grain, pulses, and pantry staples with live warehouse stock.
+              <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-zinc-900 leading-[1.08] [text-wrap:balance]">
+                Shifoni maua chiffon, solid crepe bolts, and artisanal Eau de Parfum.
               </h1>
 
               <p className="text-base text-stone-600 leading-relaxed max-w-xl">
-                Order maize, beans, Mwea Pishori rice, cane sugar, and cooking oil directly from
-                depot inventory. Stock is reserved atomically at checkout with live 5-stage
-                delivery tracking.
+                Order floral chiffon rolls, jewel-tone solid fabrics, and small-batch fragrances with
+                real-time vault availability, automatic delivery location picking, and live courier
+                tracking.
               </p>
             </div>
 
@@ -189,9 +204,9 @@ export function CatalogSection({
               <div className="flex flex-wrap items-center gap-3">
                 <a
                   href="#catalog-grid"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-emerald-900 text-white text-sm font-medium hover:bg-emerald-800 transition-colors whitespace-nowrap shrink-0"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 transition-colors whitespace-nowrap shrink-0"
                 >
-                  Browse Commodities
+                  Explore Collection
                   <ArrowRight className="w-4 h-4" />
                 </a>
 
@@ -201,7 +216,7 @@ export function CatalogSection({
                     onClick={onSignIn}
                     className="inline-flex items-center gap-2 px-4 py-3 rounded-lg border border-stone-300 bg-white text-zinc-900 text-sm font-medium hover:bg-stone-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   >
-                    Sign In to Order & Track
+                    Sign In to Order &amp; Track
                   </button>
                 )}
               </div>
@@ -212,7 +227,7 @@ export function CatalogSection({
                 className="pt-4 border-t border-stone-200 flex flex-col sm:flex-row gap-2.5 sm:items-center"
               >
                 <label htmlFor="quick-track-ref" className="text-xs font-medium text-stone-600 whitespace-nowrap">
-                  Track shipment:
+                  Track parcel:
                 </label>
                 <div className="flex flex-1 max-w-sm gap-2">
                   <input
@@ -220,8 +235,8 @@ export function CatalogSection({
                     type="text"
                     value={quickRef}
                     onChange={(e) => setQuickRef(e.target.value)}
-                    placeholder="Enter reference e.g. MVN-2026-1042"
-                    className="flex-1 min-w-0 px-3 py-2 text-xs font-mono bg-[#F7F7F5] border border-stone-300 rounded-lg text-zinc-900 placeholder:text-stone-400 focus:outline-none focus:border-emerald-800"
+                    placeholder="Enter reference e.g. SSL-2026-2041"
+                    className="flex-1 min-w-0 px-3 py-2 text-xs font-mono bg-[#FAF8F5] border border-stone-300 rounded-lg text-zinc-900 placeholder:text-stone-400 focus:outline-none focus:border-zinc-900"
                   />
                   <button
                     type="submit"
@@ -234,51 +249,99 @@ export function CatalogSection({
             </div>
           </div>
 
-          <div className="lg:col-span-5 min-h-[260px] lg:min-h-[420px] relative bg-stone-100">
-            <CommodityImage
-              src={HERO_WAREHOUSE_IMAGE}
-              alt="Mavuno Direct agricultural commodity warehouse with stacked grain sacks and pantry jars"
-              className="lg:h-full"
-            />
+          <div className="lg:col-span-5 flex flex-col bg-[#F3EFE8] border-t lg:border-t-0 lg:border-l border-stone-200">
+            <button
+              type="button"
+              onClick={() => {
+                const match = commodities.find((c) => c.id === activeHeroSlide.id);
+                if (match) onInspectCommodity(match);
+              }}
+              className="relative flex-1 min-h-[250px] lg:min-h-[340px] w-full overflow-hidden group cursor-pointer text-left"
+            >
+              <CommodityImage
+                src={activeHeroSlide.imageUrl}
+                alt={activeHeroSlide.name}
+                className="transition-transform duration-300 group-hover:scale-[1.02]"
+              />
+            </button>
+
+            <div className="bg-white border-t border-stone-200 p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-zinc-900 truncate">
+                    {activeHeroSlide.name}
+                  </p>
+                  <p className="text-[11px] text-stone-500 truncate">
+                    {activeHeroSlide.subtitle}
+                  </p>
+                </div>
+                <span className="font-mono tabular-nums text-[11px] text-stone-500 shrink-0">
+                  {heroGalleryIdx + 1} / {UPLOADED_FABRIC_GALLERY.length}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-5 gap-2">
+                {UPLOADED_FABRIC_GALLERY.map((slide, idx) => {
+                  const selected = idx === heroGalleryIdx;
+                  return (
+                    <button
+                      key={slide.id}
+                      type="button"
+                      onClick={() => setHeroGalleryIdx(idx)}
+                      aria-label={`Preview ${slide.name}`}
+                      title={slide.name}
+                      className={`aspect-[4/3] rounded-lg overflow-hidden border transition-all cursor-pointer ${
+                        selected
+                          ? 'border-zinc-900 ring-1 ring-zinc-900 opacity-100'
+                          : 'border-stone-200 opacity-75 hover:opacity-100 hover:border-stone-400'
+                      }`}
+                    >
+                      <CommodityImage src={slide.imageUrl} alt={slide.name} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Full-width 4-column summary strip below hero */}
         <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-white border border-stone-200 rounded-xl px-4 py-3.5">
-            <p className="text-xs text-stone-500">Catalog Availability</p>
+            <p className="text-xs text-stone-500">Ready to Dispatch</p>
             <p className="mt-1 font-mono tabular-nums text-lg font-semibold text-zinc-900">
               {inStockCount} In Stock
             </p>
           </div>
           <div className="bg-white border border-stone-200 rounded-xl px-4 py-3.5">
-            <p className="text-xs text-stone-500">Low Stock Alerts</p>
+            <p className="text-xs text-stone-500">Limited Edition / Low</p>
             <p className="mt-1 font-mono tabular-nums text-lg font-semibold text-amber-800">
               {lowStockCount} Low Stock
             </p>
           </div>
           <div className="bg-white border border-stone-200 rounded-xl px-4 py-3.5">
-            <p className="text-xs text-stone-500">Free Regional Delivery</p>
+            <p className="text-xs text-stone-500">Complimentary Courier</p>
             <p className="mt-1 font-mono tabular-nums text-lg font-semibold text-zinc-900">
               KES 15,000+
             </p>
           </div>
           <div className="bg-white border border-stone-200 rounded-xl px-4 py-3.5">
-            <p className="text-xs text-stone-500">Fulfillment Standard</p>
+            <p className="text-xs text-stone-500">Atelier Care</p>
             <p className="mt-1 text-lg font-semibold text-zinc-900">5-Stage Tracking</p>
           </div>
         </div>
       </section>
 
-      {/* Catalog Toolbar & Commodity Grid */}
+      {/* Catalog Toolbar & Product Grid */}
       <section id="catalog-grid" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-stone-200">
           <div>
-            <h2 className="font-display text-2xl font-semibold text-zinc-900">
-              Live Commodity Catalog
+            <h2 className="font-display text-3xl font-semibold text-zinc-900">
+              Fabrics &amp; Fragrance Collection
             </h2>
             <p className="text-sm text-stone-600 mt-0.5">
-              Click any item for full origin specifications, or add quantities directly to your cart.
+              Select any textile or fragrance for full origin and note profiles, or add units
+              directly to your bag.
             </p>
           </div>
 
@@ -289,16 +352,16 @@ export function CatalogSection({
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search maize, rice, origin..."
-                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-stone-300 rounded-lg text-zinc-900 placeholder:text-stone-400 focus:outline-none focus:border-emerald-800"
+                placeholder="Search silk, linen, oud, Grasse..."
+                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-stone-300 rounded-lg text-zinc-900 placeholder:text-stone-400 focus:outline-none focus:border-zinc-900"
               />
             </div>
 
             <select
-              aria-label="Sort commodities"
+              aria-label="Sort collection"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="px-3 py-2 text-xs font-medium bg-white border border-stone-300 rounded-lg text-zinc-800 focus:outline-none focus:border-emerald-800 cursor-pointer"
+              className="px-3 py-2 text-xs font-medium bg-white border border-stone-300 rounded-lg text-zinc-800 focus:outline-none focus:border-zinc-900 cursor-pointer"
             >
               <option value="name">Sort: Name (A–Z)</option>
               <option value="price-asc">Price: Low to High</option>
@@ -311,7 +374,7 @@ export function CatalogSection({
               onClick={() => setInStockOnly((v) => !v)}
               className={`px-3.5 py-2 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 inStockOnly
-                  ? 'bg-emerald-900 text-white border-emerald-900'
+                  ? 'bg-zinc-900 text-white border-zinc-900'
                   : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
               }`}
             >
@@ -343,7 +406,7 @@ export function CatalogSection({
           </div>
 
           <span className="text-xs text-stone-500 font-mono tabular-nums">
-            Showing {filteredCommodities.length} of {commodities.length} items
+            Showing {filteredCommodities.length} of {commodities.length} pieces
           </span>
         </div>
 
@@ -367,13 +430,13 @@ export function CatalogSection({
           </div>
         ) : commodities.length === 0 ? (
           <div className="bg-white border border-stone-200 rounded-2xl p-10 text-center max-w-xl mx-auto">
-            <h3 className="font-display text-lg font-semibold text-zinc-900">
-              Catalog inventory is not initialized yet
+            <h3 className="font-display text-2xl font-semibold text-zinc-900">
+              Boutique collection is ready to load
             </h3>
             <p className="text-sm text-stone-600 mt-2 leading-relaxed">
               {user?.role === 'admin' || user?.role === 'dispatcher'
-                ? 'Load the starter catalog of agricultural grains, legumes, sugar, cooking oil, and sample in-transit orders into Firestore.'
-                : 'Sign in with an administrator account to initialize the live commodity catalog and sample shipments.'}
+                ? 'Load our curated collection of mulberry silk, Belgian linen, Eau de Parfum, and botanical oud oils into Firestore.'
+                : 'Sign in with an administrator account to load the live fabric and perfume collection.'}
             </p>
             <div className="mt-6 flex justify-center gap-3">
               {user?.role === 'admin' || user?.role === 'dispatcher' ? (
@@ -381,18 +444,18 @@ export function CatalogSection({
                   type="button"
                   disabled={seeding}
                   onClick={() => void onSeedDemo()}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-900 text-white text-sm font-medium hover:bg-emerald-800 disabled:opacity-60 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 disabled:opacity-60 cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4" />
-                  {seeding ? 'Seeding Warehouse...' : 'Seed Sample Catalog & Orders'}
+                  {seeding ? 'Loading Collection...' : 'Load Fabrics & Perfumes'}
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={onSignIn}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-900 text-white text-sm font-medium hover:bg-emerald-800 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 cursor-pointer"
                 >
-                  Sign In with Google
+                  Sign In
                 </button>
               )}
             </div>
@@ -400,7 +463,7 @@ export function CatalogSection({
         ) : filteredCommodities.length === 0 ? (
           <div className="bg-white border border-stone-200 rounded-xl p-10 text-center">
             <p className="text-sm font-medium text-zinc-900">
-              No commodities match your current filter.
+              No fabrics or perfumes match your current filter.
             </p>
             <button
               type="button"
@@ -410,7 +473,7 @@ export function CatalogSection({
                 setInStockOnly(false);
                 setSortBy('name');
               }}
-              className="mt-3 text-xs font-medium text-emerald-900 underline cursor-pointer"
+              className="mt-3 text-xs font-medium text-zinc-900 underline cursor-pointer"
             >
               Reset all filters
             </button>
@@ -437,7 +500,7 @@ export function CatalogSection({
                   <button
                     type="button"
                     onClick={() => onInspectCommodity(commodity)}
-                    className="aspect-[4/3] bg-stone-100 overflow-hidden block w-full text-left cursor-pointer group relative"
+                    className="aspect-[4/3] bg-[#F3EFE8] overflow-hidden block w-full text-left cursor-pointer group relative"
                   >
                     <CommodityImage
                       src={commodity.imageUrl}
@@ -470,7 +533,7 @@ export function CatalogSection({
                         onClick={() => onInspectCommodity(commodity)}
                         className="text-left block w-full cursor-pointer"
                       >
-                        <h3 className="font-display text-base font-semibold text-zinc-900 hover:text-emerald-900 transition-colors leading-snug">
+                        <h3 className="font-display text-xl font-semibold text-zinc-900 hover:text-[#7C5C38] transition-colors leading-snug">
                           {commodity.name}
                         </h3>
                       </button>
@@ -496,7 +559,7 @@ export function CatalogSection({
                         </span>
                       </div>
 
-                      {/* Semantic Stock Status (icon + explicit label, no pill enclosure) */}
+                      {/* Semantic Stock Status */}
                       <div className="flex items-center justify-between text-xs">
                         {availability === 'In Stock' && (
                           <span className="inline-flex items-center gap-1.5 font-medium text-emerald-800">
@@ -511,7 +574,7 @@ export function CatalogSection({
                         {availability === 'Low Stock' && (
                           <span className="inline-flex items-center gap-1.5 font-medium text-amber-800">
                             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                            <span>Low Stock</span>
+                            <span>Limited Stock</span>
                             <span aria-hidden="true">·</span>
                             <span className="font-mono tabular-nums">
                               Only {commodity.stockQuantity} left
@@ -521,63 +584,85 @@ export function CatalogSection({
                         {availability === 'Out of Stock' && (
                           <span className="inline-flex items-center gap-1.5 font-medium text-rose-700">
                             <XCircle className="w-3.5 h-3.5 shrink-0" />
-                            <span>Out of Stock</span>
+                            <span>Sold Out</span>
                           </span>
                         )}
 
                         {inCart > 0 && (
                           <span className="font-mono tabular-nums text-stone-600">
-                            {inCart} in cart
+                            {inCart} in bag
                           </span>
                         )}
                       </div>
 
-                      {/* Stepper + Add CTA */}
-                      <div className="flex items-center gap-2 pt-1">
-                        <div className="inline-flex items-center border border-stone-300 rounded-lg bg-[#F7F7F5]">
+                      {/* Stepper + Add to Bag & Direct Order Now CTA */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center gap-2">
+                          <div className="inline-flex items-center border border-stone-300 rounded-lg bg-[#FAF8F5]">
+                            <button
+                              type="button"
+                              disabled={isOut || isMaxedInCart || draftQty <= 1}
+                              onClick={() => handleStepDraft(commodity, -1)}
+                              aria-label={`Decrease quantity for ${commodity.name}`}
+                              className="p-2 text-stone-700 hover:text-zinc-900 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="w-8 text-center font-mono tabular-nums text-xs font-medium text-zinc-900">
+                              {isOut || isMaxedInCart ? 0 : draftQty}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={isOut || isMaxedInCart || draftQty >= maxAddable}
+                              onClick={() => handleStepDraft(commodity, 1)}
+                              aria-label={`Increase quantity for ${commodity.name}`}
+                              className="p-2 text-stone-700 hover:text-zinc-900 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
                           <button
                             type="button"
-                            disabled={isOut || isMaxedInCart || draftQty <= 1}
-                            onClick={() => handleStepDraft(commodity, -1)}
-                            aria-label={`Decrease quantity for ${commodity.name}`}
-                            className="p-2 text-stone-700 hover:text-zinc-900 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                            disabled={isOut || isMaxedInCart}
+                            onClick={() => handleAdd(commodity)}
+                            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap cursor-pointer disabled:cursor-not-allowed ${
+                              isOut || isMaxedInCart
+                                ? 'bg-stone-100 border-stone-200 text-stone-400'
+                                : justAdded
+                                ? 'bg-[#7C5C38] border-[#7C5C38] text-white'
+                                : 'bg-white border-stone-300 text-zinc-900 hover:bg-stone-50'
+                            }`}
                           >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="w-8 text-center font-mono tabular-nums text-xs font-medium text-zinc-900">
-                            {isOut || isMaxedInCart ? 0 : draftQty}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={isOut || isMaxedInCart || draftQty >= maxAddable}
-                            onClick={() => handleStepDraft(commodity, 1)}
-                            aria-label={`Increase quantity for ${commodity.name}`}
-                            className="p-2 text-stone-700 hover:text-zinc-900 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
+                            <ShoppingBag className="w-3.5 h-3.5" />
+                            {isOut
+                              ? 'Sold Out'
+                              : isMaxedInCart
+                              ? 'Max in Bag'
+                              : justAdded
+                              ? 'Added'
+                              : 'Add to Bag'}
                           </button>
                         </div>
 
                         <button
                           type="button"
-                          disabled={isOut || isMaxedInCart}
-                          onClick={() => handleAdd(commodity)}
-                          className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer disabled:cursor-not-allowed ${
-                            isOut || isMaxedInCart
+                          disabled={isOut}
+                          onClick={() => handleDirectOrder(commodity)}
+                          className={`w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer disabled:cursor-not-allowed ${
+                            isOut
                               ? 'bg-stone-200 text-stone-500'
-                              : justAdded
-                              ? 'bg-emerald-700 text-white'
-                              : 'bg-emerald-900 text-white hover:bg-emerald-800'
+                              : 'bg-zinc-900 text-white hover:bg-zinc-800'
                           }`}
                         >
-                          <ShoppingBag className="w-3.5 h-3.5" />
-                          {isOut
-                            ? 'Unavailable'
-                            : isMaxedInCart
-                            ? 'Max Stock in Cart'
-                            : justAdded
-                            ? 'Added to Cart'
-                            : 'Add to Cart'}
+                          <span>
+                            {isOut
+                              ? 'Sold Out'
+                              : isMaxedInCart
+                              ? `Order Now (${inCart} in bag)`
+                              : `Order Now · ${formatKes(commodity.unitPrice * draftQty)}`}
+                          </span>
+                          {!isOut && <ArrowRight className="w-3.5 h-3.5" />}
                         </button>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 /**
- * Payload-First Security TDD Spec for Mavuno Direct Firestore Rules
+ * Payload-First Security TDD Spec for Sable & Silk Firestore Rules
  * Verifies the "Dirty Dozen" adversarial payloads are rejected.
  */
 
@@ -34,7 +34,7 @@ export const dirtyDozenCases: DirtyDozenCase[] = [
     name: 'Unverified Email Write',
     collectionPath: 'orders/ord_unverified',
     operation: 'create',
-    payload: { orderReference: 'MVN-2026-9999', status: 'Order Placed' },
+    payload: { orderReference: 'SSL-2026-9999', status: 'Order Placed' },
     expectedOutcome: 'PERMISSION_DENIED',
   },
   {
@@ -48,7 +48,7 @@ export const dirtyDozenCases: DirtyDozenCase[] = [
   {
     id: 5,
     name: 'Overselling Stock Below Zero',
-    collectionPath: 'commodities/maize_50kg',
+    collectionPath: 'commodities/silk_mulberry_champagne',
     operation: 'update',
     payload: { stockQuantity: -5 },
     expectedOutcome: 'PERMISSION_DENIED',
@@ -56,7 +56,7 @@ export const dirtyDozenCases: DirtyDozenCase[] = [
   {
     id: 6,
     name: 'Price Tampering on Checkout',
-    collectionPath: 'commodities/maize_50kg',
+    collectionPath: 'commodities/silk_mulberry_champagne',
     operation: 'update',
     payload: { unitPrice: 1, stockQuantity: 10 },
     expectedOutcome: 'PERMISSION_DENIED',

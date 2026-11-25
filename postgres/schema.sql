@@ -1,4 +1,4 @@
--- Mavuno Direct PostgreSQL Relational Schema
+-- Sable & Silk PostgreSQL Relational Schema
 -- Tables: users, commodities, orders, order_items, delivery_tracking
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS commodities (
   sku VARCHAR(40) NOT NULL UNIQUE,
   name VARCHAR(120) NOT NULL,
   category VARCHAR(60) NOT NULL CHECK (
-    category IN ('Grains & Cereals', 'Pulses & Legumes', 'Sugar & Sweeteners', 'Oils & Pantry')
+    category IN ('Silk & Satin Fabrics', 'Linen & Cotton Textiles', 'Eau de Parfum', 'Botanical & Oud Oils')
   ),
   description TEXT NOT NULL,
   unit_label VARCHAR(40) NOT NULL,

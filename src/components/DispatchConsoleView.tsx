@@ -36,11 +36,49 @@ interface DispatchConsoleViewProps {
   seeding: boolean;
 }
 
+const PHOTO_OPTIONS: Array<{ label: string; category: CommodityCategory; imageUrl: string }> = [
+  {
+    label: 'Solid Dyed Couture Crepe Bolts',
+    category: 'Silk & Satin Fabrics',
+    imageUrl: '/assets/aistudio/IMG-20261125-WA0005_491395f7.jpg',
+  },
+  {
+    label: 'Shifoni Maua · Scarlet & Cobalt Floral',
+    category: 'Silk & Satin Fabrics',
+    imageUrl: '/assets/aistudio/IMG-20261125-WA0006_85463d22.jpg',
+  },
+  {
+    label: 'Shifoni Maua · Botanical & Paisley',
+    category: 'Silk & Satin Fabrics',
+    imageUrl: '/assets/aistudio/IMG-20261125-WA0009_01569df1.jpg',
+  },
+  {
+    label: 'Shifoni Maua · Pastel Rose & Toile',
+    category: 'Linen & Cotton Textiles',
+    imageUrl: '/assets/aistudio/IMG-20261125-WA0007_d0d76b4e.jpg',
+  },
+  {
+    label: 'Shifoni Maua · Polka Dot & Poppy',
+    category: 'Linen & Cotton Textiles',
+    imageUrl: '/assets/aistudio/IMG-20261125-WA0010_9c4fe833.jpg',
+  },
+  {
+    label: 'Eau de Parfum Amber Flacon',
+    category: 'Eau de Parfum',
+    imageUrl: '/src/assets/images/perfume_amber_oud_1795606060003.jpg',
+  },
+  {
+    label: 'Botanical & Oud Attar Dropper',
+    category: 'Botanical & Oud Oils',
+    imageUrl: '/src/assets/images/perfume_botanical_oil_1795606060646.jpg',
+  },
+];
+
 const IMAGE_PRESETS: Record<CommodityCategory, string> = {
-  'Grains & Cereals': '/src/assets/images/commodity_maize_grain_1795601314397.jpg',
-  'Pulses & Legumes': '/src/assets/images/commodity_beans_pulses_1795601314512.jpg',
-  'Sugar & Sweeteners': '/src/assets/images/commodity_cane_sugar_1795601315533.jpg',
-  'Oils & Pantry': '/src/assets/images/commodity_cooking_oil_1795601315949.jpg',
+  'Silk & Satin Fabrics': PHOTO_OPTIONS[0].imageUrl,
+  'Linen & Cotton Textiles': PHOTO_OPTIONS[3].imageUrl,
+  'Eau de Parfum': PHOTO_OPTIONS[5].imageUrl,
+  'Botanical & Oud Oils': PHOTO_OPTIONS[6].imageUrl,
 };
 
 export function DispatchConsoleView({
@@ -57,28 +95,25 @@ export function DispatchConsoleView({
     text: string;
   } | null>(null);
 
-  // Per-order location and note drafts for advancing status
   const [locationDrafts, setLocationDrafts] = useState<Record<string, string>>({});
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [advancingId, setAdvancingId] = useState<string | null>(null);
 
-  // Restock inputs
   const [stockDrafts, setStockDrafts] = useState<Record<string, string>>({});
   const [restockingId, setRestockingId] = useState<string | null>(null);
 
-  // New commodity form
   const [showAddForm, setShowAddForm] = useState(false);
   const [newSku, setNewSku] = useState('');
   const [newName, setNewName] = useState('');
-  const [newCategory, setNewCategory] = useState<CommodityCategory>('Grains & Cereals');
-  const [newUnitLabel, setNewUnitLabel] = useState('50kg bag');
-  const [newUnitPrice, setNewUnitPrice] = useState('3200');
+  const [newCategory, setNewCategory] = useState<CommodityCategory>('Silk & Satin Fabrics');
+  const [newUnitLabel, setNewUnitLabel] = useState('per meter');
+  const [newUnitPrice, setNewUnitPrice] = useState('3800');
   const [newStock, setNewStock] = useState('25');
-  const [newThreshold, setNewThreshold] = useState('8');
-  const [newOrigin, setNewOrigin] = useState('Nakuru');
+  const [newThreshold, setNewThreshold] = useState('6');
+  const [newOrigin, setNewOrigin] = useState('Fathy Textiles');
   const [newDescription, setNewDescription] = useState('');
+  const [newImageUrl, setNewImageUrl] = useState(IMAGE_PRESETS['Silk & Satin Fabrics']);
 
-  // Team roles (Admin only)
   const [teamUsers, setTeamUsers] = useState<UserProfile[]>([]);
 
   const isPrivileged = user?.role === 'admin' || user?.role === 'dispatcher';
@@ -96,20 +131,20 @@ export function DispatchConsoleView({
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16">
         <div className="bg-white border border-stone-200 rounded-2xl p-8 sm:p-10 text-center space-y-4">
-          <h1 className="font-display text-2xl font-semibold text-zinc-900">
-            Dispatcher & Warehouse Console
+          <h1 className="font-display text-3xl font-semibold text-zinc-900">
+            Atelier Dispatch &amp; Vault Console
           </h1>
           <p className="text-sm text-stone-600 max-w-md mx-auto">
-            Sign in with an authorized dispatcher or administrator account to restock commodities
-            and update shipment milestones.
+            Sign in with an authorized atelier manager or courier account to restock fabrics and
+            perfumes or advance shipment milestones.
           </p>
           <button
             type="button"
             onClick={onSignIn}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-900 text-white text-sm font-medium hover:bg-emerald-800 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 cursor-pointer"
           >
             <LogIn className="w-4 h-4" />
-            Sign In with Google
+            Sign In
           </button>
         </div>
       </div>
@@ -122,7 +157,7 @@ export function DispatchConsoleView({
         <div className="bg-white border border-stone-200 rounded-2xl p-8 sm:p-10 space-y-4">
           <div className="flex items-center gap-2.5 text-amber-800">
             <AlertTriangle className="w-5 h-5" />
-            <h1 className="font-display text-xl font-semibold text-zinc-900">
+            <h1 className="font-display text-2xl font-semibold text-zinc-900">
               Dispatcher or Admin Role Required
             </h1>
           </div>
@@ -130,7 +165,7 @@ export function DispatchConsoleView({
             You are signed in as <span className="font-medium text-zinc-900">{user.email}</span>{' '}
             with role <span className="font-mono font-semibold">{user.role}</span>. Only accounts
             assigned <span className="font-mono">dispatcher</span> or{' '}
-            <span className="font-mono">admin</span> permissions can modify warehouse stock or
+            <span className="font-mono">admin</span> permissions can modify boutique inventory or
             advance delivery statuses.
           </p>
         </div>
@@ -146,16 +181,16 @@ export function DispatchConsoleView({
     const location =
       locationDrafts[order.id]?.trim() ||
       (nextStage === 'Packed & Ready'
-        ? 'Nairobi Central Dispatch Bay'
+        ? 'Lavington Tailoring & Fragrance Vault'
         : nextStage === 'In Transit'
-        ? 'Regional Highway Transit Corridor'
+        ? 'Waiyaki Way · Boutique Courier Corridor'
         : nextStage === 'Out for Delivery'
-        ? 'Local Delivery Van · Last Mile'
+        ? 'Local Climate-Controlled Courier Van'
         : order.deliveryAddress);
 
     const notes =
       noteDrafts[order.id]?.trim() ||
-      `Shipment progressed to ${nextStage} by dispatch team.`;
+      `Parcel progressed to ${nextStage} by atelier team.`;
 
     setAdvancingId(order.id);
     setStatusFeedback(null);
@@ -238,12 +273,12 @@ export function DispatchConsoleView({
         unitPrice: Number(newUnitPrice),
         stockQuantity: Number(newStock),
         lowStockThreshold: Number(newThreshold),
-        imageUrl: IMAGE_PRESETS[newCategory],
+        imageUrl: newImageUrl || IMAGE_PRESETS[newCategory],
         origin: newOrigin,
       });
       setStatusFeedback({
         type: 'success',
-        text: `${newName} added to live catalog.`,
+        text: `${newName} added to boutique catalog.`,
       });
       setShowAddForm(false);
       setNewSku('');
@@ -252,7 +287,7 @@ export function DispatchConsoleView({
     } catch (err) {
       setStatusFeedback({
         type: 'error',
-        text: err instanceof Error ? err.message : 'Could not add commodity.',
+        text: err instanceof Error ? err.message : 'Could not add item.',
       });
     }
   };
@@ -265,7 +300,7 @@ export function DispatchConsoleView({
       );
       setStatusFeedback({
         type: 'success',
-        text: 'User role updated.',
+        text: 'Team member role updated.',
       });
     } catch (err) {
       setStatusFeedback({
@@ -277,15 +312,14 @@ export function DispatchConsoleView({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-zinc-900">
-            Dispatch & Inventory Console
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold text-zinc-900">
+            Atelier Dispatch &amp; Vault Console
           </h1>
           <p className="text-sm text-stone-600 mt-1">
             Signed in as <span className="font-medium text-zinc-900">{user.displayName}</span> ·
-            Role: <span className="font-mono font-semibold text-emerald-900">{user.role}</span>
+            Role: <span className="font-mono font-semibold text-zinc-900">{user.role}</span>
           </p>
         </div>
 
@@ -295,8 +329,8 @@ export function DispatchConsoleView({
           onClick={() => void onSeedDemo()}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-stone-300 bg-white text-zinc-900 text-xs font-medium hover:bg-stone-50 disabled:opacity-60 cursor-pointer whitespace-nowrap shrink-0"
         >
-          <Sparkles className="w-3.5 h-3.5 text-emerald-900" />
-          {seeding ? 'Seeding Workspace...' : 'Seed Demo Catalog & Orders'}
+          <Sparkles className="w-3.5 h-3.5 text-[#7C5C38]" />
+          {seeding ? 'Syncing Catalog...' : 'Sync Fabric & Perfume Catalog'}
         </button>
       </div>
 
@@ -326,7 +360,7 @@ export function DispatchConsoleView({
             activeTab === 'dispatch' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
           }`}
         >
-          Delivery Dispatch Queue ({orders.length})
+          Courier Dispatch Queue ({orders.length})
         </button>
         <button
           type="button"
@@ -335,7 +369,7 @@ export function DispatchConsoleView({
             activeTab === 'inventory' ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600'
           }`}
         >
-          Warehouse Stock ({commodities.length})
+          Vault Inventory ({commodities.length})
         </button>
         {isAdmin && (
           <button
@@ -355,7 +389,7 @@ export function DispatchConsoleView({
         <div className="space-y-4">
           {orders.length === 0 ? (
             <div className="bg-white border border-stone-200 rounded-xl p-8 text-center text-sm text-stone-600">
-              No orders in the dispatch queue yet.
+              No orders in the atelier dispatch queue yet.
             </div>
           ) : (
             orders.map((order) => {
@@ -389,7 +423,7 @@ export function DispatchConsoleView({
                       </span>
                       <span
                         className={`text-xs font-semibold ${
-                          isDelivered ? 'text-emerald-800' : 'text-amber-800'
+                          isDelivered ? 'text-emerald-800' : 'text-[#7C5C38]'
                         }`}
                       >
                         {order.status}
@@ -409,13 +443,13 @@ export function DispatchConsoleView({
                           onChange={(e) =>
                             setLocationDrafts((p) => ({ ...p, [order.id]: e.target.value }))
                           }
-                          placeholder="e.g. Thika Highway · Juja Weighbridge"
-                          className="w-full px-3 py-2 text-xs bg-[#F7F7F5] border border-stone-300 rounded-lg focus:outline-none focus:border-emerald-800"
+                          placeholder="e.g. Waiyaki Way · Westlands Courier"
+                          className="w-full px-3 py-2 text-xs bg-[#FAF8F5] border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
                         />
                       </div>
                       <div className="md:col-span-5">
                         <label className="block text-[11px] font-medium text-stone-500 mb-1">
-                          Dispatch Note
+                          Atelier / Courier Note
                         </label>
                         <input
                           type="text"
@@ -423,8 +457,8 @@ export function DispatchConsoleView({
                           onChange={(e) =>
                             setNoteDrafts((p) => ({ ...p, [order.id]: e.target.value }))
                           }
-                          placeholder="e.g. Driver departed bay with sealed manifest"
-                          className="w-full px-3 py-2 text-xs bg-[#F7F7F5] border border-stone-300 rounded-lg focus:outline-none focus:border-emerald-800"
+                          placeholder="e.g. Silk rolled on tissue tube; parcel sealed"
+                          className="w-full px-3 py-2 text-xs bg-[#FAF8F5] border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
                         />
                       </div>
                       <div className="md:col-span-3">
@@ -432,7 +466,7 @@ export function DispatchConsoleView({
                           type="button"
                           disabled={advancingId === order.id}
                           onClick={() => void handleAdvanceStatus(order)}
-                          className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-900 text-white text-xs font-medium hover:bg-emerald-800 disabled:opacity-60 cursor-pointer whitespace-nowrap"
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 disabled:opacity-60 cursor-pointer whitespace-nowrap"
                         >
                           <Truck className="w-3.5 h-3.5" />
                           {advancingId === order.id
@@ -444,7 +478,7 @@ export function DispatchConsoleView({
                   ) : (
                     <p className="text-xs text-emerald-800 font-medium flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4" />
-                      Fulfillment complete — customer delivery confirmed.
+                      Courier handoff complete — client delivery confirmed.
                     </p>
                   )}
                 </div>
@@ -461,10 +495,10 @@ export function DispatchConsoleView({
             <button
               type="button"
               onClick={() => setShowAddForm((v) => !v)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-900 text-white text-xs font-medium hover:bg-emerald-800 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 cursor-pointer"
             >
               <PackagePlus className="w-4 h-4" />
-              {showAddForm ? 'Cancel New Commodity' : 'Add Commodity'}
+              {showAddForm ? 'Cancel New Item' : 'Add Fabric or Perfume'}
             </button>
           </div>
 
@@ -479,17 +513,17 @@ export function DispatchConsoleView({
                   required
                   value={newSku}
                   onChange={(e) => setNewSku(e.target.value)}
-                  placeholder="GRN-FLR-25KG"
+                  placeholder="PRF-ROS-50"
                   className="w-full px-3 py-2 text-xs font-mono border border-stone-300 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-xs text-stone-600 mb-1">Commodity Name</label>
+                <label className="block text-xs text-stone-600 mb-1">Item Name</label>
                 <input
                   required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Fortified Maize Flour"
+                  placeholder="Damask Rose Eau de Parfum"
                   className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg"
                 />
               </div>
@@ -497,7 +531,11 @@ export function DispatchConsoleView({
                 <label className="block text-xs text-stone-600 mb-1">Category</label>
                 <select
                   value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value as CommodityCategory)}
+                  onChange={(e) => {
+                    const nextCat = e.target.value as CommodityCategory;
+                    setNewCategory(nextCat);
+                    setNewImageUrl(IMAGE_PRESETS[nextCat]);
+                  }}
                   className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg bg-white"
                 >
                   {COMMODITY_CATEGORIES.filter((c) => c !== 'All').map((cat) => (
@@ -558,22 +596,38 @@ export function DispatchConsoleView({
                   className="w-full px-3 py-2 text-xs font-mono border border-stone-300 rounded-lg"
                 />
               </div>
-              <div className="sm:col-span-2 lg:col-span-3">
-                <label className="block text-xs text-stone-600 mb-1">Description</label>
+              <div className="sm:col-span-2 lg:col-span-2">
+                <label className="block text-xs text-stone-600 mb-1">
+                  Weave / Scent Notes Description
+                </label>
                 <input
                   required
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Grade, moisture level, and packaging details"
+                  placeholder="Fabric weight/composition or fragrance top, heart, and base notes"
                   className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg"
                 />
+              </div>
+              <div className="sm:col-span-2 lg:col-span-1">
+                <label className="block text-xs text-stone-600 mb-1">Product Photo</label>
+                <select
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg bg-white"
+                >
+                  {PHOTO_OPTIONS.map((opt) => (
+                    <option key={opt.imageUrl} value={opt.imageUrl}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-end">
                 <button
                   type="submit"
-                  className="w-full py-2 px-4 rounded-lg bg-emerald-900 text-white text-xs font-medium hover:bg-emerald-800 cursor-pointer"
+                  className="w-full py-2 px-4 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 cursor-pointer"
                 >
-                  Save Commodity
+                  Save to Collection
                 </button>
               </div>
             </form>
@@ -581,9 +635,9 @@ export function DispatchConsoleView({
 
           <div className="bg-white border border-stone-200 rounded-xl overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-[#F7F7F5] text-stone-600 border-b border-stone-200">
+              <thead className="bg-[#FAF8F5] text-stone-600 border-b border-stone-200">
                 <tr>
-                  <th className="text-left font-medium px-4 py-3">Commodity</th>
+                  <th className="text-left font-medium px-4 py-3">Fabric / Fragrance</th>
                   <th className="text-left font-medium px-4 py-3">Unit Price</th>
                   <th className="text-left font-medium px-4 py-3">Status</th>
                   <th className="text-right font-medium px-4 py-3">On Hand</th>
@@ -614,7 +668,7 @@ export function DispatchConsoleView({
                               : 'text-rose-700'
                           }`}
                         >
-                          {status}
+                          {status === 'Out of Stock' ? 'Sold Out' : status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums font-semibold text-zinc-900">
@@ -633,10 +687,10 @@ export function DispatchConsoleView({
                           <button
                             type="button"
                             disabled={restockingId === c.id}
-                            onClick={() => void handleQuickRestock(c, 50)}
+                            onClick={() => void handleQuickRestock(c, 25)}
                             className="px-2.5 py-1.5 rounded border border-stone-300 bg-white hover:bg-stone-50 font-mono text-[11px] font-medium cursor-pointer"
                           >
-                            +50
+                            +25
                           </button>
                           <input
                             type="number"
@@ -652,7 +706,7 @@ export function DispatchConsoleView({
                             type="button"
                             disabled={restockingId === c.id || !stockDrafts[c.id]}
                             onClick={() => void handleSetExactStock(c)}
-                            className="px-2.5 py-1.5 rounded bg-emerald-900 text-white text-[11px] font-medium hover:bg-emerald-800 disabled:opacity-40 cursor-pointer"
+                            className="px-2.5 py-1.5 rounded bg-zinc-900 text-white text-[11px] font-medium hover:bg-zinc-800 disabled:opacity-40 cursor-pointer"
                           >
                             Save
                           </button>
@@ -671,7 +725,7 @@ export function DispatchConsoleView({
       {activeTab === 'roles' && isAdmin && (
         <div className="bg-white border border-stone-200 rounded-xl overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-[#F7F7F5] text-stone-600 border-b border-stone-200">
+            <thead className="bg-[#FAF8F5] text-stone-600 border-b border-stone-200">
               <tr>
                 <th className="text-left font-medium px-4 py-3">User</th>
                 <th className="text-left font-medium px-4 py-3">Email</th>
@@ -684,9 +738,9 @@ export function DispatchConsoleView({
                 <tr key={member.uid}>
                   <td className="px-4 py-3 font-medium text-zinc-900">{member.displayName}</td>
                   <td className="px-4 py-3 text-stone-600">{member.email}</td>
-                  <td className="px-4 py-3 font-mono text-emerald-900">
+                  <td className="px-4 py-3 font-mono text-zinc-900">
                     <span className="inline-flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#7C5C38]" />
                       {member.role}
                     </span>
                   </td>

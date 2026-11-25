@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, MapPin, Phone, User, X } from 'lucide-react';
+import { CheckCircle2, Phone, User, X } from 'lucide-react';
 import { updateUserProfileDetails } from '../services/firestoreService';
 import { UserProfile } from '../types/commerce';
+import { AddressLocationPicker } from './AddressLocationPicker';
 
 interface ProfileModalProps {
   open: boolean;
@@ -74,11 +75,11 @@ export function ProfileModal({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 id="profile-modal-title" className="font-display text-lg font-semibold text-zinc-900">
-              Delivery Profile & Account
+            <h2 id="profile-modal-title" className="font-display text-2xl font-semibold text-zinc-900">
+              Delivery Profile &amp; Account
             </h2>
             <p className="text-xs text-stone-500 mt-0.5">
-              Save your contact number and drop-off address for faster checkout.
+              Save your contact number and courier address for express atelier checkout.
             </p>
           </div>
           <button
@@ -91,9 +92,9 @@ export function ProfileModal({
           </button>
         </div>
 
-        <div className="bg-[#F7F7F5] border border-stone-200 rounded-xl px-3.5 py-2.5 text-xs text-stone-600 flex items-center justify-between">
+        <div className="bg-[#FAF8F5] border border-stone-200 rounded-xl px-3.5 py-2.5 text-xs text-stone-600 flex items-center justify-between">
           <span className="truncate">{user.email}</span>
-          <span className="font-mono font-medium text-emerald-900 shrink-0 ml-2">
+          <span className="font-mono font-medium text-[#7C5C38] shrink-0 ml-2">
             {user.role}
           </span>
         </div>
@@ -117,7 +118,7 @@ export function ProfileModal({
               maxLength={100}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-emerald-800"
+              className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
             />
           </div>
 
@@ -133,25 +134,18 @@ export function ProfileModal({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+254 712 345 678"
-              className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-emerald-800"
+              className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
             />
           </div>
 
-          <div>
-            <label htmlFor="profile-address" className="flex items-center gap-1.5 text-xs font-medium text-stone-700 mb-1">
-              <MapPin className="w-3.5 h-3.5 text-stone-400" />
-              Default Drop-Off Address
-            </label>
-            <textarea
-              id="profile-address"
-              rows={2}
-              maxLength={300}
-              value={defaultAddress}
-              onChange={(e) => setDefaultAddress(e.target.value)}
-              placeholder="e.g. Juja Town Market Stall 14, Kiambu County"
-              className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-emerald-800"
-            />
-          </div>
+          <AddressLocationPicker
+            id="profile-address"
+            label="Default Drop-Off Address"
+            rows={2}
+            value={defaultAddress}
+            onChange={setDefaultAddress}
+            placeholder="e.g. Riverside Drive Suite 4B, Westlands, Nairobi"
+          />
 
           <div className="flex items-center justify-end gap-2 pt-2">
             <button
@@ -164,7 +158,7 @@ export function ProfileModal({
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-900 text-white text-xs font-medium hover:bg-emerald-800 disabled:opacity-60 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 disabled:opacity-60 cursor-pointer"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               {saving ? 'Saving...' : 'Save Defaults'}

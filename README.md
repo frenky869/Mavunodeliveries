@@ -1,14 +1,14 @@
-# Mavuno Direct — Commodity Ordering & Delivery Tracking Prototype
+# Sable & Silk — Fine Fabrics & Artisanal Perfumes Storefront
 
-Full-stack agricultural and household commodity ordering platform featuring live warehouse stock availability, atomic order placement, step-by-step delivery tracking, and an admin/dispatcher console.
+Full-stack boutique fabric and fragrance storefront featuring live bolt/flacon stock availability, atomic order placement, step-by-step courier tracking, and an atelier inventory/dispatch console.
 
 ## Project Structure
 
 - `src/App.tsx` — Root application shell, auth state, real-time catalog & order subscriptions
-- `src/components/CatalogSection.tsx` — Searchable, category-filtered commodity storefront with live stock caps
-- `src/components/CartDrawer.tsx` — Slide-over cart & checkout drawer with atomic order submission
+- `src/components/CatalogSection.tsx` — Searchable, category-filtered fabric & perfume storefront with live stock caps
+- `src/components/CartDrawer.tsx` — Slide-over shopping bag & checkout drawer with atomic order submission
 - `src/components/OrdersTrackingView.tsx` — Order reference lookup, customer order cards, and 5-stage delivery timeline
-- `src/components/DispatchConsoleView.tsx` — Admin/dispatcher queue, stock replenishment, and demo seeding
+- `src/components/DispatchConsoleView.tsx` — Atelier admin/dispatcher queue, stock replenishment, and demo seeding
 - `src/services/firestoreService.ts` — Firebase Auth + Firestore transactions & real-time listeners
 - `firestore.rules` & `firebase-blueprint.json` — Hardened Firestore security rules and schema blueprint
 - `postgres/schema.sql` & `postgres/seed.sql` — Relational PostgreSQL DDL & seed data (`users`, `commodities`, `orders`, `order_items`, `delivery_tracking`)
@@ -32,15 +32,12 @@ Full-stack agricultural and household commodity ordering platform featuring live
 
 ## 2. Push to GitHub & Deploy on Vercel
 
-1. Initialize Git and push to your GitHub repository:
+1. Commit and push to your GitHub repository:
    ```bash
-   git init
    git add .
-   git commit -m "Initial Mavuno Direct prototype"
-   git branch -M main
-   git remote add origin https://github.com/<your-username>/<your-repo>.git
-   git push -u origin main
+   git commit -m "Customize Sable & Silk fabric and perfume storefront"
+   git push origin main
    ```
-2. Go to [vercel.com](https://vercel.com), click **Add New Project**, and import your GitHub repository.
+2. Go to [vercel.com](https://vercel.com), click **Add New Project** (or let your existing project auto-deploy from `main`).
 3. Vercel automatically detects `vercel.json` (`npm run build`, output directory `dist`).
-4. In Firebase Console (**Authentication → Settings → Authorized domains**), add your `<your-app>.vercel.app` domain so Google Sign-In works in production, then click **Deploy**.
+4. Ensure your `<your-app>.vercel.app` hostname is added in Firebase Console (**Authentication → Settings → Authorized domains**) so Google Sign-In works in production.

@@ -3,10 +3,10 @@ import { Timestamp } from 'firebase/firestore';
 export type UserRole = 'customer' | 'dispatcher' | 'admin';
 
 export type CommodityCategory =
-  | 'Grains & Cereals'
-  | 'Pulses & Legumes'
-  | 'Sugar & Sweeteners'
-  | 'Oils & Pantry';
+  | 'Silk & Satin Fabrics'
+  | 'Linen & Cotton Textiles'
+  | 'Eau de Parfum'
+  | 'Botanical & Oud Oils';
 
 export type OrderStatus =
   | 'Order Placed'
@@ -25,10 +25,17 @@ export const ORDER_STATUS_FLOW: OrderStatus[] = [
 
 export const COMMODITY_CATEGORIES: ('All' | CommodityCategory)[] = [
   'All',
-  'Grains & Cereals',
-  'Pulses & Legumes',
-  'Sugar & Sweeteners',
-  'Oils & Pantry',
+  'Silk & Satin Fabrics',
+  'Linen & Cotton Textiles',
+  'Eau de Parfum',
+  'Botanical & Oud Oils',
+];
+
+export const VALID_BOUTIQUE_CATEGORIES: CommodityCategory[] = [
+  'Silk & Satin Fabrics',
+  'Linen & Cotton Textiles',
+  'Eau de Parfum',
+  'Botanical & Oud Oils',
 ];
 
 export const ADMIN_BOOTSTRAP_EMAIL = 'martin.francis@students.jkuat.ac.ke';

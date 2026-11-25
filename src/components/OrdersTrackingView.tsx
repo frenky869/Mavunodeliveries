@@ -125,21 +125,21 @@ export function OrdersTrackingView({
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16">
         <div className="bg-white border border-stone-200 rounded-2xl p-8 sm:p-10 text-center space-y-4">
-          <h1 className="font-display text-2xl font-semibold text-zinc-900">
-            Sign in to view your orders & live delivery timeline
+          <h1 className="font-display text-3xl font-semibold text-zinc-900">
+            Sign in to view your orders &amp; live delivery timeline
           </h1>
           <p className="text-sm text-stone-600 max-w-md mx-auto leading-relaxed">
-            Order history, delivery addresses, and shipment milestones are protected per customer
-            account. Sign in with Google to inspect your active dispatches.
+            Order history, courier addresses, and shipment milestones are protected per client
+            account. Sign in to inspect your active dispatches.
           </p>
           <div className="pt-2">
             <button
               type="button"
               onClick={onSignIn}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-900 text-white text-sm font-medium hover:bg-emerald-800 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
-              Sign In with Google
+              Sign In
             </button>
           </div>
         </div>
@@ -156,12 +156,12 @@ export function OrdersTrackingView({
       {/* Header, Default Address Shortcut & Reference Lookup */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-stone-200">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-zinc-900">
-            Orders & Delivery Tracking
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold text-zinc-900">
+            Orders &amp; Courier Tracking
           </h1>
           <p className="text-sm text-stone-600 mt-1">
-            Look up an order reference, reorder staples in one click, or inspect real-time transit
-            checkpoints.
+            Look up an order reference, reorder fabrics or perfumes in one click, or follow live
+            courier checkpoints.
           </p>
         </div>
 
@@ -181,8 +181,8 @@ export function OrdersTrackingView({
               type="search"
               value={searchRef}
               onChange={(e) => setSearchRef(e.target.value)}
-              placeholder="Filter by reference e.g. MVN-2026-1042"
-              className="w-full pl-9 pr-3 py-2 text-sm font-mono bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-emerald-800"
+              placeholder="Filter reference e.g. SSL-2026-2041"
+              className="w-full pl-9 pr-3 py-2 text-sm font-mono bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
             />
           </div>
         </div>
@@ -194,21 +194,21 @@ export function OrdersTrackingView({
         </div>
       ) : orders.length === 0 ? (
         <div className="bg-white border border-stone-200 rounded-2xl p-10 text-center max-w-xl mx-auto space-y-3">
-          <h2 className="font-display text-lg font-semibold text-zinc-900">
+          <h2 className="font-display text-2xl font-semibold text-zinc-900">
             No orders found for {user.displayName}
           </h2>
           <p className="text-sm text-stone-600">
-            Place an order from the commodity catalog, or load sample in-transit orders if you are
-            signed in as an administrator.
+            Place an order from the fabric &amp; fragrance collection, or load sample atelier
+            shipments if signed in as an administrator.
           </p>
           {(user.role === 'admin' || user.role === 'dispatcher') && (
             <button
               type="button"
               disabled={seeding}
               onClick={() => void onSeedDemo()}
-              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-900 text-white text-xs font-medium hover:bg-emerald-800 cursor-pointer"
+              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 cursor-pointer"
             >
-              {seeding ? 'Seeding...' : 'Seed Sample In-Transit Orders'}
+              {seeding ? 'Loading...' : 'Load Sample Atelier Orders'}
             </button>
           )}
         </div>
@@ -222,7 +222,7 @@ export function OrdersTrackingView({
                 <button
                   type="button"
                   onClick={() => setSearchRef('')}
-                  className="text-xs font-medium text-emerald-900 underline cursor-pointer"
+                  className="text-xs font-medium text-zinc-900 underline cursor-pointer"
                 >
                   Show all orders
                 </button>
@@ -238,7 +238,7 @@ export function OrdersTrackingView({
                     onClick={() => setSelectedOrderId(order.id)}
                     className={`w-full text-left bg-white rounded-xl p-4 border transition-colors cursor-pointer ${
                       isSelected
-                        ? 'border-emerald-900 ring-1 ring-emerald-900'
+                        ? 'border-zinc-900 ring-1 ring-zinc-900'
                         : 'border-stone-200 hover:border-stone-300'
                     }`}
                   >
@@ -256,7 +256,7 @@ export function OrdersTrackingView({
                         className={`inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap ${
                           order.status === 'Delivered'
                             ? 'text-emerald-800'
-                            : 'text-amber-800'
+                            : 'text-[#7C5C38]'
                         }`}
                       >
                         <Icon className="w-3.5 h-3.5" />
@@ -316,7 +316,7 @@ export function OrdersTrackingView({
                     onClick={() => onReorderItems(items)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-stone-300 bg-white text-xs font-medium text-zinc-900 hover:bg-stone-50 disabled:opacity-40 cursor-pointer whitespace-nowrap"
                   >
-                    <RotateCcw className="w-3.5 h-3.5 text-emerald-900" />
+                    <RotateCcw className="w-3.5 h-3.5 text-zinc-900" />
                     Reorder Items
                   </button>
                 </div>
@@ -326,7 +326,7 @@ export function OrdersTrackingView({
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-stone-600">Shipment Progress</span>
-                  <span className="font-semibold text-emerald-900">{activeOrder.status}</span>
+                  <span className="font-semibold text-zinc-900">{activeOrder.status}</span>
                 </div>
                 <div className="grid grid-cols-5 gap-1.5">
                   {ORDER_STATUS_FLOW.map((stage, idx) => {
@@ -335,7 +335,7 @@ export function OrdersTrackingView({
                       <div key={stage} className="space-y-1.5">
                         <div
                           className={`h-1.5 rounded-full transition-colors ${
-                            reached ? 'bg-emerald-900' : 'bg-stone-200'
+                            reached ? 'bg-zinc-900' : 'bg-stone-200'
                           }`}
                         />
                         <p
@@ -354,8 +354,8 @@ export function OrdersTrackingView({
 
               {/* Detailed Step-by-Step Delivery Timeline */}
               <div className="space-y-4 pt-2 border-t border-stone-100">
-                <h3 className="font-display text-base font-semibold text-zinc-900">
-                  Checkpoint Log
+                <h3 className="font-display text-2xl font-semibold text-zinc-900">
+                  Courier Checkpoint Log
                 </h3>
 
                 <ol className="space-y-4">
@@ -373,8 +373,8 @@ export function OrdersTrackingView({
                           <div
                             className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${
                               completed
-                                ? 'bg-emerald-900 border-emerald-900 text-white'
-                                : 'bg-[#F7F7F5] border-stone-300 text-stone-400'
+                                ? 'bg-zinc-900 border-zinc-900 text-white'
+                                : 'bg-[#FAF8F5] border-stone-300 text-stone-400'
                             }`}
                           >
                             <StageIcon className="w-4 h-4" />
@@ -382,7 +382,7 @@ export function OrdersTrackingView({
                           {index < ORDER_STATUS_FLOW.length - 1 && (
                             <div
                               className={`w-px flex-1 min-h-[24px] mt-1 ${
-                                index < currentStageIndex ? 'bg-emerald-900' : 'bg-stone-200'
+                                index < currentStageIndex ? 'bg-zinc-900' : 'bg-stone-200'
                               }`}
                             />
                           )}
@@ -418,7 +418,7 @@ export function OrdersTrackingView({
                             </div>
                           ) : (
                             <p className="text-xs text-stone-400 mt-1">
-                              Awaiting dispatch update.
+                              Awaiting atelier dispatch update.
                             </p>
                           )}
                         </div>
@@ -430,7 +430,7 @@ export function OrdersTrackingView({
 
               {/* Itemized Receipt & Delivery Destination */}
               <div className="pt-6 border-t border-stone-200 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-[#F7F7F5] p-4 rounded-xl border border-stone-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-[#FAF8F5] p-4 rounded-xl border border-stone-200">
                   <div>
                     <p className="text-stone-500">Delivery Address</p>
                     <p className="font-medium text-zinc-900 mt-0.5">
@@ -451,13 +451,13 @@ export function OrdersTrackingView({
 
                 <div>
                   <h3 className="text-xs font-semibold text-zinc-900 mb-2">
-                    Ordered Commodities
+                    Ordered Fabrics &amp; Fragrances
                   </h3>
                   <div className="border border-stone-200 rounded-xl overflow-hidden">
                     <table className="w-full text-xs">
-                      <thead className="bg-[#F7F7F5] text-stone-600 border-b border-stone-200">
+                      <thead className="bg-[#FAF8F5] text-stone-600 border-b border-stone-200">
                         <tr>
-                          <th className="text-left font-medium px-3.5 py-2.5">Commodity</th>
+                          <th className="text-left font-medium px-3.5 py-2.5">Item</th>
                           <th className="text-right font-medium px-3.5 py-2.5">Qty</th>
                           <th className="text-right font-medium px-3.5 py-2.5">Unit Price</th>
                           <th className="text-right font-medium px-3.5 py-2.5">Line Total</th>
@@ -484,14 +484,14 @@ export function OrdersTrackingView({
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot className="bg-[#F7F7F5] border-t border-stone-200">
+                      <tfoot className="bg-[#FAF8F5] border-t border-stone-200">
                         <tr>
                           <td colSpan={3} className="px-3.5 py-2 text-right text-stone-600">
-                            Delivery Fee
+                            Courier Fee
                           </td>
                           <td className="px-3.5 py-2 text-right font-mono tabular-nums">
                             {activeOrder.deliveryFee === 0
-                              ? 'Free'
+                              ? 'Complimentary'
                               : formatKes(activeOrder.deliveryFee)}
                           </td>
                         </tr>
@@ -500,7 +500,7 @@ export function OrdersTrackingView({
                             colSpan={3}
                             className="px-3.5 py-2.5 text-right font-semibold text-zinc-900"
                           >
-                            Total Paid / Due
+                            Total
                           </td>
                           <td className="px-3.5 py-2.5 text-right font-mono tabular-nums font-bold text-zinc-900">
                             {formatKes(activeOrder.totalAmount)}

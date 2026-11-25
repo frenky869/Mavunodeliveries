@@ -47,7 +47,7 @@
     },
     "Commodity": {
       "title": "Commodity",
-      "description": "Agricultural or household commodity item with real-time stock level and unit pricing.",
+      "description": "Luxury fabric textile or artisanal perfume item with real-time stock level and unit pricing.",
       "type": "object",
       "properties": {
         "sku": {
@@ -63,7 +63,7 @@
         },
         "category": {
           "type": "string",
-          "enum": ["Grains & Cereals", "Pulses & Legumes", "Sugar & Sweeteners", "Oils & Pantry"]
+          "enum": ["Silk & Satin Fabrics", "Linen & Cotton Textiles", "Eau de Parfum", "Botanical & Oud Oils"]
         },
         "description": {
           "type": "string",

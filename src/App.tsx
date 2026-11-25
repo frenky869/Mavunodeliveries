@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  updateProfile,
+  User as FirebaseUser,
+} from 'firebase/auth';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { auth, googleAuthProvider } from './lib/firebase';
+import { SEED_COMMODITIES } from './data/seedCommodities';
 import {
   ensureUserProfile,
   seedDemoWorkspace,
@@ -16,6 +27,7 @@ import {
   Order,
   OrderItem,
   UserProfile,
+  VALID_BOUTIQUE_CATEGORIES,
 } from './types/commerce';
 import { TopBar, AppView } from './components/TopBar';
 import { CatalogSection } from './components/CatalogSection';
@@ -24,6 +36,7 @@ import { OrdersTrackingView } from './components/OrdersTrackingView';
 import { DispatchConsoleView } from './components/DispatchConsoleView';
 import { CommodityDetailModal } from './components/CommodityDetailModal';
 import { ProfileModal } from './components/ProfileModal';
+import { LoginPage } from './components/LoginPage';
 
 interface ToastState {
   message: string;
@@ -33,7 +46,10 @@ interface ToastState {
 
 export default function App() {
   const [activeView, setActiveView] = useState<AppView>('catalog');
+  const [returnView, setReturnView] = useState<Exclude<AppView, 'login'>>('catalog');
+  const [reopenBagAfterLogin, setReopenBagAfterLogin] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [pendingVerificationUser, setPendingVerificationUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -65,10 +81,18 @@ export default function App() {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         setUser(null);
+        setPendingVerificationUser(null);
         setOrders([]);
         setAuthLoading(false);
         return;
       }
+      if (!firebaseUser.emailVerified) {
+        setUser(null);
+        setPendingVerificationUser(firebaseUser);
+        setAuthLoading(false);
+        return;
+      }
+      setPendingVerificationUser(null);
       try {
         const profile = await ensureUserProfile(firebaseUser);
         setUser(profile);
@@ -112,11 +136,57 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // 3. Auto-seed starter catalog & sample shipments when admin connects to empty store
+  // Normalize deprecated pre-upload fabric paths on read while preserving live Firestore stock & pricing
+  const displayCommodities = useMemo(() => {
+    const seedById = new Map(SEED_COMMODITIES.map((s) => [s.id, s]));
+    return commodities
+      .filter(
+        (c) =>
+          !(
+            c.id === 'wool_boucle_ivory' &&
+            c.imageUrl.includes('/src/assets/images/fabric_')
+          )
+      )
+      .map((c) => {
+        const seed = seedById.get(c.id);
+        if (seed && c.imageUrl.includes('/src/assets/images/fabric_')) {
+          return {
+            ...c,
+            sku: seed.sku,
+            name: seed.name,
+            description: seed.description,
+            origin: seed.origin,
+            unitLabel: seed.unitLabel,
+            imageUrl: seed.imageUrl,
+          };
+        }
+        return c;
+      });
+  }, [commodities]);
+
+  // 3. Auto-seed boutique catalog & sample orders when admin connects to empty or out-of-sync store
   useEffect(() => {
+    const needsBoutiqueMigration =
+      commodities.length === 0 ||
+      commodities.some(
+        (c) =>
+          !VALID_BOUTIQUE_CATEGORIES.includes(c.category) ||
+          c.imageUrl.includes('/src/assets/images/fabric_') ||
+          c.id === 'wool_boucle_ivory'
+      ) ||
+      SEED_COMMODITIES.some((seed) => {
+        const live = commodities.find((c) => c.id === seed.id);
+        return (
+          !live ||
+          live.imageUrl !== seed.imageUrl ||
+          live.name !== seed.name ||
+          live.sku !== seed.sku
+        );
+      });
+
     if (
       !commoditiesLoading &&
-      commodities.length === 0 &&
+      needsBoutiqueMigration &&
       user?.role === 'admin' &&
       !autoSeedAttempted.current
     ) {
@@ -126,14 +196,20 @@ export default function App() {
         .then(({ seededCatalog, seededOrders }) => {
           if (seededCatalog > 0 || seededOrders > 0) {
             showToast({
-              message: 'Starter warehouse catalog and sample shipments loaded.',
+              message: 'All 5 fabric photos and perfume collection synced.',
             });
           }
         })
-        .catch(() => undefined)
+        .catch((err) => {
+          setAuthError(
+            err instanceof Error
+              ? err.message
+              : 'Unable to sync boutique catalog automatically.'
+          );
+        })
         .finally(() => setSeeding(false));
     }
-  }, [commoditiesLoading, commodities.length, user]);
+  }, [commoditiesLoading, commodities, user]);
 
   // 4. Real-time Orders Listener (when signed in)
   useEffect(() => {
@@ -169,19 +245,79 @@ export default function App() {
     return orders.find((o) => o.status !== 'Delivered') || null;
   }, [orders]);
 
-  const handleSignIn = async () => {
+  const openLoginPage = (targetAfterLogin?: Exclude<AppView, 'login'>, openBag = false) => {
     setAuthError(null);
-    try {
-      await signInWithPopup(auth, googleAuthProvider);
-    } catch (err) {
-      setAuthError(
-        err instanceof Error ? err.message : 'Sign-in was cancelled or blocked.'
-      );
+    if (targetAfterLogin) {
+      setReturnView(targetAfterLogin);
+    } else if (activeView !== 'login') {
+      setReturnView(activeView);
     }
+    setReopenBagAfterLogin(openBag);
+    setCartOpen(false);
+    setActiveView('login');
+  };
+
+  const completeAuthenticatedNavigation = () => {
+    const nextView = returnView || 'catalog';
+    setActiveView(nextView);
+    if (reopenBagAfterLogin) {
+      setCartOpen(true);
+      setReopenBagAfterLogin(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setAuthError(null);
+    const cred = await signInWithPopup(auth, googleAuthProvider);
+    if (cred.user.emailVerified) {
+      completeAuthenticatedNavigation();
+    }
+  };
+
+  const handleEmailSignIn = async (email: string, password: string) => {
+    setAuthError(null);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    if (!cred.user.emailVerified) {
+      setPendingVerificationUser(cred.user);
+      return;
+    }
+    completeAuthenticatedNavigation();
+  };
+
+  const handleEmailSignUp = async (fullName: string, email: string, password: string) => {
+    setAuthError(null);
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(cred.user, { displayName: fullName });
+    await sendEmailVerification(cred.user);
+    setPendingVerificationUser(cred.user);
+  };
+
+  const handlePasswordReset = async (email: string) => {
+    setAuthError(null);
+    await sendPasswordResetEmail(auth, email);
+  };
+
+  const handleResendVerification = async () => {
+    if (!auth.currentUser) return;
+    await sendEmailVerification(auth.currentUser);
+  };
+
+  const handleCheckVerification = async (): Promise<boolean> => {
+    if (!auth.currentUser) return false;
+    await auth.currentUser.reload();
+    if (auth.currentUser.emailVerified) {
+      setPendingVerificationUser(null);
+      const profile = await ensureUserProfile(auth.currentUser);
+      setUser(profile);
+      completeAuthenticatedNavigation();
+      return true;
+    }
+    return false;
   };
 
   const handleSignOut = async () => {
     await signOut(auth);
+    setPendingVerificationUser(null);
     setActiveView('catalog');
   };
 
@@ -209,10 +345,37 @@ export default function App() {
     });
 
     showToast({
-      message: `Added ${quantity} × ${commodity.name} to cart.`,
-      actionLabel: 'Open Cart',
+      message: `Added ${quantity} × ${commodity.name} to bag.`,
+      actionLabel: 'Open Bag',
       onAction: () => setCartOpen(true),
     });
+  };
+
+  const handleOrderNow = (commodity: Commodity, quantity: number) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.commodity.id === commodity.id);
+      if (existing) {
+        if (existing.quantity >= commodity.stockQuantity) return prev;
+        const capped = Math.min(
+          commodity.stockQuantity,
+          existing.quantity + quantity
+        );
+        return prev.map((item) =>
+          item.commodity.id === commodity.id
+            ? { commodity, quantity: capped }
+            : item
+        );
+      }
+      if (commodity.stockQuantity <= 0) return prev;
+      return [
+        ...prev,
+        {
+          commodity,
+          quantity: Math.min(commodity.stockQuantity, quantity),
+        },
+      ];
+    });
+    setCartOpen(true);
   };
 
   const handleReorderItems = (orderItems: OrderItem[]) => {
@@ -255,12 +418,12 @@ export default function App() {
       showToast({
         message:
           skippedUnavailable > 0
-            ? `Added available items to cart (${skippedUnavailable} capped or out of stock).`
-            : 'All available items added to your cart.',
+            ? `Added available pieces to bag (${skippedUnavailable} capped or sold out).`
+            : 'All available pieces added to your bag.',
       });
     } else {
       showToast({
-        message: 'None of the items in this order currently have available stock.',
+        message: 'None of the pieces in this order currently have available stock.',
       });
     }
   };
@@ -291,7 +454,7 @@ export default function App() {
     setAuthError(null);
     try {
       await seedDemoWorkspace(user);
-      showToast({ message: 'Sample catalog and orders seeded.' });
+      showToast({ message: 'Boutique fabric & perfume collection seeded.' });
     } catch (err) {
       setAuthError(
         err instanceof Error ? err.message : 'Unable to seed workspace data.'
@@ -327,7 +490,7 @@ export default function App() {
     : 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F7F5] text-zinc-900">
+    <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-zinc-900">
       <TopBar
         activeView={activeView}
         onNavigate={setActiveView}
@@ -335,7 +498,7 @@ export default function App() {
         onOpenCart={() => setCartOpen(true)}
         user={user}
         authLoading={authLoading}
-        onSignIn={handleSignIn}
+        onSignIn={() => openLoginPage()}
         onSignOut={handleSignOut}
         onOpenProfile={() => setProfileModalOpen(true)}
       />
@@ -360,17 +523,32 @@ export default function App() {
       )}
 
       <main className="flex-1">
+        {activeView === 'login' && (
+          <LoginPage
+            onGoogleSignIn={handleGoogleSignIn}
+            onEmailSignIn={handleEmailSignIn}
+            onEmailSignUp={handleEmailSignUp}
+            onPasswordReset={handlePasswordReset}
+            pendingVerificationUser={pendingVerificationUser}
+            onResendVerification={handleResendVerification}
+            onCheckVerification={handleCheckVerification}
+            onSignOutUnverified={handleSignOut}
+            onBackToStore={() => setActiveView('catalog')}
+          />
+        )}
+
         {activeView === 'catalog' && (
           <CatalogSection
-            commodities={commodities}
+            commodities={displayCommodities}
             loading={commoditiesLoading}
             cart={cart}
             activeOrder={activeOrder}
             onAddToCart={handleAddToCart}
+            onOrderNow={handleOrderNow}
             onInspectCommodity={setInspectedCommodity}
             onTrackRefSubmit={handleTrackRefSubmit}
             user={user}
-            onSignIn={handleSignIn}
+            onSignIn={() => openLoginPage('catalog')}
             onSeedDemo={handleSeedDemo}
             seeding={seeding}
           />
@@ -382,7 +560,7 @@ export default function App() {
             orders={orders}
             loading={ordersLoading}
             initialSearchRef={trackRefTarget}
-            onSignIn={handleSignIn}
+            onSignIn={() => openLoginPage(activeView === 'track' ? 'track' : 'orders')}
             onSeedDemo={handleSeedDemo}
             seeding={seeding}
             onReorderItems={handleReorderItems}
@@ -393,9 +571,9 @@ export default function App() {
         {activeView === 'dispatch' && (
           <DispatchConsoleView
             user={user}
-            commodities={commodities}
+            commodities={displayCommodities}
             orders={orders}
-            onSignIn={handleSignIn}
+            onSignIn={() => openLoginPage('dispatch')}
             onSeedDemo={handleSeedDemo}
             seeding={seeding}
           />
@@ -404,14 +582,14 @@ export default function App() {
 
       <footer className="border-t border-stone-200 bg-white mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500">
-          <p>© {new Date().getFullYear()} Mavuno Direct Commodities. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Sable &amp; Silk Atelier. Fine Fabrics &amp; Artisanal Perfumes.</p>
           <div className="flex items-center gap-5">
             <button
               type="button"
               onClick={() => setActiveView('catalog')}
               className="hover:text-zinc-900 cursor-pointer"
             >
-              Catalog
+              Collection
             </button>
             <button
               type="button"
@@ -432,7 +610,7 @@ export default function App() {
               onClick={() => setActiveView('dispatch')}
               className="hover:text-zinc-900 cursor-pointer"
             >
-              Dispatch Console
+              Atelier Console
             </button>
           </div>
         </div>
@@ -445,7 +623,7 @@ export default function App() {
           aria-live="polite"
           className="fixed bottom-5 right-5 z-40 max-w-sm bg-zinc-900 text-white rounded-xl px-4 py-3 shadow-lg flex items-center gap-3 text-xs"
         >
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-[#D6B588] shrink-0" />
           <span className="flex-1">{toast.message}</span>
           {toast.actionLabel && toast.onAction && (
             <button
@@ -454,7 +632,7 @@ export default function App() {
                 toast.onAction?.();
                 setToast(null);
               }}
-              className="font-semibold text-emerald-300 hover:text-emerald-200 whitespace-nowrap cursor-pointer"
+              className="font-semibold text-[#E8CFA6] hover:text-white whitespace-nowrap cursor-pointer"
             >
               {toast.actionLabel}
             </button>
@@ -476,6 +654,7 @@ export default function App() {
         inCartQty={inspectedInCartQty}
         onClose={() => setInspectedCommodity(null)}
         onAddToCart={handleAddToCart}
+        onOrderNow={handleOrderNow}
       />
 
       <ProfileModal
@@ -493,7 +672,7 @@ export default function App() {
         onRemoveItem={handleRemoveCartItem}
         onClearCart={() => setCart([])}
         user={user}
-        onSignIn={handleSignIn}
+        onSignIn={() => openLoginPage('catalog', true)}
         onOrderPlaced={handleOrderPlaced}
         onProfileUpdated={(updated) =>
           setUser((prev) => (prev ? { ...prev, ...updated } : null))

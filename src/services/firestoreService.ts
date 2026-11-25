@@ -28,13 +28,14 @@ import {
   ORDER_STATUS_FLOW,
   UserProfile,
   UserRole,
+  VALID_BOUTIQUE_CATEGORIES,
 } from '../types/commerce';
 
 export function generateOrderReference(): string {
   const year = new Date().getFullYear();
   const suffix = Math.floor(1000 + Math.random() * 9000);
   const alpha = Math.random().toString(36).substring(2, 4).toUpperCase();
-  return `MVN-${year}-${suffix}${alpha}`;
+  return `SSL-${year}-${suffix}${alpha}`;
 }
 
 export async function ensureUserProfile(firebaseUser: User): Promise<UserProfile> {
@@ -54,7 +55,7 @@ export async function ensureUserProfile(firebaseUser: User): Promise<UserProfile
 
     const newProfile: Record<string, unknown> = {
       uid: firebaseUser.uid,
-      displayName: (firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Customer').slice(0, 100),
+      displayName: (firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Client').slice(0, 100),
       email: (firebaseUser.email || '').slice(0, 254),
       phone: '',
       defaultAddress: '',
@@ -122,7 +123,7 @@ export async function placeOrderTransaction(params: {
 }): Promise<{ orderId: string; orderReference: string }> {
   const { user, cartItems, deliveryPhone, deliveryAddress, deliveryNotes } = params;
   if (cartItems.length === 0) {
-    throw new Error('Your cart is empty.');
+    throw new Error('Your shopping bag is empty.');
   }
 
   const orderId = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -131,7 +132,6 @@ export async function placeOrderTransaction(params: {
 
   try {
     await runTransaction(db, async (tx) => {
-      // 1. Read all commodity documents inside the transaction first
       const commoditySnapshots = await Promise.all(
         cartItems.map(async (item) => {
           const ref = doc(db, 'commodities', item.commodity.id);
@@ -140,7 +140,6 @@ export async function placeOrderTransaction(params: {
         })
       );
 
-      // 2. Validate stock availability & compute authoritative totals
       let subtotalAmount = 0;
       let totalQuantityCount = 0;
 
@@ -191,7 +190,6 @@ export async function placeOrderTransaction(params: {
       const deliveryFee = subtotalAmount >= 15000 ? 0 : 450;
       const totalAmount = subtotalAmount + deliveryFee;
 
-      // 3. Atomically deduct stock from each commodity
       for (const line of validatedLines) {
         tx.update(line.ref, {
           stockQuantity: line.nextStock,
@@ -199,7 +197,6 @@ export async function placeOrderTransaction(params: {
         });
       }
 
-      // 4. Create the Order document
       tx.set(orderRef, {
         orderReference,
         customerUid: user.uid,
@@ -218,7 +215,6 @@ export async function placeOrderTransaction(params: {
         updatedAt: serverTimestamp(),
       });
 
-      // 5. Create normalized Order Item documents
       validatedLines.forEach((line, idx) => {
         const itemRef = doc(db, 'orders', orderId, 'items', `item_${idx + 1}`);
         tx.set(itemRef, {
@@ -234,15 +230,14 @@ export async function placeOrderTransaction(params: {
         });
       });
 
-      // 6. Create initial Order Placed delivery tracking record
       const trackingRef = doc(db, 'orders', orderId, 'tracking', 'evt_1');
       tx.set(trackingRef, {
         orderId,
         customerUid: user.uid,
         status: 'Order Placed',
-        location: 'Nairobi Central Fulfillment Hub',
-        notes: 'Order confirmed and inventory reserved from warehouse stock.',
-        updatedBy: 'System Checkout',
+        location: 'Sable & Silk Nairobi Atelier',
+        notes: 'Order confirmed and fabric/fragrance stock reserved from boutique vault.',
+        updatedBy: 'Boutique Checkout',
         createdAt: serverTimestamp(),
       });
     });
@@ -449,11 +444,36 @@ export async function seedDemoWorkspace(adminProfile: UserProfile): Promise<{ se
 
   try {
     const existingCommodities = await getDocs(collection(db, 'commodities'));
-    if (existingCommodities.empty) {
+    const legacyDocs = existingCommodities.docs.filter((d) => {
+      const cat = (d.data() as { category?: string }).category;
+      return !cat || !VALID_BOUTIQUE_CATEGORIES.includes(cat as (typeof VALID_BOUTIQUE_CATEGORIES)[number]);
+    });
+
+    const existingMap = new Map(existingCommodities.docs.map((d) => [d.id, d]));
+    const obsoleteSeedDoc = existingMap.get('wool_boucle_ivory');
+    const needsSeedSync = SEED_COMMODITIES.some((seed) => {
+      const existingDoc = existingMap.get(seed.id);
+      if (!existingDoc) return true;
+      const data = existingDoc.data() as { imageUrl?: string; name?: string; sku?: string };
+      return (
+        data.imageUrl !== seed.imageUrl ||
+        data.name !== seed.name ||
+        data.sku !== seed.sku
+      );
+    });
+
+    if (legacyDocs.length > 0 || obsoleteSeedDoc || needsSeedSync) {
       const batch = writeBatch(db);
+      for (const legacy of legacyDocs) {
+        batch.delete(legacy.ref);
+      }
+      if (obsoleteSeedDoc) {
+        batch.delete(obsoleteSeedDoc.ref);
+      }
       for (const item of SEED_COMMODITIES) {
         const ref = doc(db, 'commodities', item.id);
-        batch.set(ref, {
+        const existingDoc = existingMap.get(item.id);
+        const payload = {
           sku: item.sku,
           name: item.name,
           category: item.category,
@@ -466,38 +486,44 @@ export async function seedDemoWorkspace(adminProfile: UserProfile): Promise<{ se
           imageUrl: item.imageUrl,
           origin: item.origin,
           isActive: item.isActive,
-          createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        });
+        };
+
+        if (existingDoc) {
+          batch.update(ref, payload);
+        } else {
+          batch.set(ref, {
+            ...payload,
+            createdAt: serverTimestamp(),
+          });
+        }
         seededCatalog += 1;
       }
       await batch.commit();
     }
 
-    const existingOrders = await getDocs(
-      query(collection(db, 'orders'), where('customerUid', '==', adminProfile.uid))
-    );
+    const demoOrder1Id = `ord_boutique_transit_${adminProfile.uid.slice(0, 8)}`;
+    const demoOrder2Id = `ord_boutique_packed_${adminProfile.uid.slice(0, 8)}`;
+    const existingDemo1 = await getDoc(doc(db, 'orders', demoOrder1Id));
 
-    if (existingOrders.empty) {
-      const demoOrder1Id = `ord_demo_transit_${adminProfile.uid.slice(0, 8)}`;
-      const demoOrder2Id = `ord_demo_packed_${adminProfile.uid.slice(0, 8)}`;
+    if (!existingDemo1.exists()) {
       const orderBatch = writeBatch(db);
 
-      // Demo Order 1: In Transit
+      // Demo Order 1: In Transit (Crepe + Perfume)
       orderBatch.set(doc(db, 'orders', demoOrder1Id), {
-        orderReference: 'MVN-2026-1042',
+        orderReference: 'SSL-2026-2041',
         customerUid: adminProfile.uid,
         customerName: adminProfile.displayName,
         customerEmail: adminProfile.email,
         deliveryPhone: '+254 712 345 678',
-        deliveryAddress: 'Juja Town Market Stall 14, Kiambu County',
-        deliveryNotes: 'Call gate security upon truck arrival.',
+        deliveryAddress: 'Riverside Drive Suite 4B, Westlands, Nairobi',
+        deliveryNotes: 'Deliver sealed atelier box to reception.',
         status: 'In Transit',
-        subtotalAmount: 15180,
+        subtotalAmount: 16500,
         deliveryFee: 0,
-        totalAmount: 15180,
+        totalAmount: 16500,
         currency: 'KES',
-        itemCount: 4,
+        itemCount: 3,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -505,36 +531,24 @@ export async function seedDemoWorkspace(adminProfile: UserProfile): Promise<{ se
       orderBatch.set(doc(db, 'orders', demoOrder1Id, 'items', 'item_1'), {
         orderId: demoOrder1Id,
         customerUid: adminProfile.uid,
-        commodityId: 'maize_white_50kg',
-        commodityName: 'Grade 1 Dry White Maize',
-        unitLabel: '50kg bag',
+        commodityId: 'silk_mulberry_champagne',
+        commodityName: 'Solid Dyed Couture Crepe Bolts',
+        unitLabel: 'per meter',
         quantity: 2,
-        unitPrice: 3450,
-        lineTotal: 6900,
+        unitPrice: 1850,
+        lineTotal: 3700,
         createdAt: serverTimestamp(),
       });
 
       orderBatch.set(doc(db, 'orders', demoOrder1Id, 'items', 'item_2'), {
         orderId: demoOrder1Id,
         customerUid: adminProfile.uid,
-        commodityId: 'beans_rosecoco_50kg',
-        commodityName: 'Nyota & Rosecoco Red Beans',
-        unitLabel: '50kg bag',
+        commodityId: 'perfume_lumina_amber_oud',
+        commodityName: 'Lumina Amber & Saffron Eau de Parfum',
+        unitLabel: '100ml flacon',
         quantity: 1,
-        unitPrice: 6800,
-        lineTotal: 6800,
-        createdAt: serverTimestamp(),
-      });
-
-      orderBatch.set(doc(db, 'orders', demoOrder1Id, 'items', 'item_3'), {
-        orderId: demoOrder1Id,
-        customerUid: adminProfile.uid,
-        commodityId: 'oil_sunflower_5l',
-        commodityName: 'Pure Refined Sunflower Oil',
-        unitLabel: '5L jerrycan',
-        quantity: 1,
-        unitPrice: 1480,
-        lineTotal: 1480,
+        unitPrice: 12800,
+        lineTotal: 12800,
         createdAt: serverTimestamp(),
       });
 
@@ -542,17 +556,17 @@ export async function seedDemoWorkspace(adminProfile: UserProfile): Promise<{ se
         orderId: demoOrder1Id,
         customerUid: adminProfile.uid,
         status: 'Order Placed',
-        location: 'Nairobi Central Fulfillment Hub',
-        notes: 'Order confirmed and warehouse inventory allocated.',
-        updatedBy: 'System Checkout',
+        location: 'Sable & Silk Nairobi Atelier',
+        notes: 'Order confirmed; crepe yardage and Eau de Parfum reserved.',
+        updatedBy: 'Boutique Checkout',
         createdAt: serverTimestamp(),
       });
       orderBatch.set(doc(db, 'orders', demoOrder1Id, 'tracking', 'evt_2'), {
         orderId: demoOrder1Id,
         customerUid: adminProfile.uid,
         status: 'Packed & Ready',
-        location: 'Industrial Area Bay 4, Nairobi',
-        notes: 'Moisture-checked sacks sealed, weighed, and palletized.',
+        location: 'Lavington Tailoring & Fragrance Vault',
+        notes: 'Fabric rolled on acid-free tissue tube; glass flacon cushioned in linen wrap.',
         updatedBy: adminProfile.displayName,
         createdAt: serverTimestamp(),
       });
@@ -560,27 +574,27 @@ export async function seedDemoWorkspace(adminProfile: UserProfile): Promise<{ se
         orderId: demoOrder1Id,
         customerUid: adminProfile.uid,
         status: 'In Transit',
-        location: 'Thika Superhighway · Ruiru Toll Corridor',
-        notes: 'Dispatched via Isuzu FRR Cargo Van KDQ 418M en route to Juja.',
+        location: 'Waiyaki Way · Westlands Courier Corridor',
+        notes: 'Climate-controlled boutique courier en route to Riverside Drive.',
         updatedBy: adminProfile.displayName,
         createdAt: serverTimestamp(),
       });
 
-      // Demo Order 2: Packed & Ready
+      // Demo Order 2: Packed & Ready (Shifoni Maua + Neroli Perfume)
       orderBatch.set(doc(db, 'orders', demoOrder2Id), {
-        orderReference: 'MVN-2026-1088',
+        orderReference: 'SSL-2026-2088',
         customerUid: adminProfile.uid,
         customerName: adminProfile.displayName,
         customerEmail: adminProfile.email,
         deliveryPhone: '+254 712 345 678',
-        deliveryAddress: 'Thika Road Annex Depot, Kasarani',
-        deliveryNotes: 'Deliver before 4:00 PM.',
+        deliveryAddress: 'Karen Hardy Atelier Courtyard, Nairobi',
+        deliveryNotes: 'Afternoon dispatch preferred.',
         status: 'Packed & Ready',
-        subtotalAmount: 11100,
+        subtotalAmount: 11600,
         deliveryFee: 450,
-        totalAmount: 11550,
+        totalAmount: 12050,
         currency: 'KES',
-        itemCount: 2,
+        itemCount: 3,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -588,24 +602,24 @@ export async function seedDemoWorkspace(adminProfile: UserProfile): Promise<{ se
       orderBatch.set(doc(db, 'orders', demoOrder2Id, 'items', 'item_1'), {
         orderId: demoOrder2Id,
         customerUid: adminProfile.uid,
-        commodityId: 'rice_mwea_pishori_25kg',
-        commodityName: 'Mwea Pishori Aromatic Rice',
-        unitLabel: '25kg bag',
-        quantity: 1,
-        unitPrice: 4650,
-        lineTotal: 4650,
+        commodityId: 'linen_belgian_oatmeal',
+        commodityName: 'Shifoni Maua · Pastel Rose & Toile Chiffon',
+        unitLabel: 'per meter',
+        quantity: 2,
+        unitPrice: 1350,
+        lineTotal: 2700,
         createdAt: serverTimestamp(),
       });
 
       orderBatch.set(doc(db, 'orders', demoOrder2Id, 'items', 'item_2'), {
         orderId: demoOrder2Id,
         customerUid: adminProfile.uid,
-        commodityId: 'sugar_brown_cane_50kg',
-        commodityName: 'Unrefined Brown Cane Sugar',
-        unitLabel: '50kg bag',
+        commodityId: 'perfume_neroli_cedar_50',
+        commodityName: 'Neroli & White Cedar Eau de Parfum',
+        unitLabel: '50ml flacon',
         quantity: 1,
-        unitPrice: 6450,
-        lineTotal: 6450,
+        unitPrice: 8900,
+        lineTotal: 8900,
         createdAt: serverTimestamp(),
       });
 
@@ -613,17 +627,17 @@ export async function seedDemoWorkspace(adminProfile: UserProfile): Promise<{ se
         orderId: demoOrder2Id,
         customerUid: adminProfile.uid,
         status: 'Order Placed',
-        location: 'Nairobi Central Fulfillment Hub',
+        location: 'Sable & Silk Nairobi Atelier',
         notes: 'Order confirmed and stock deducted atomically.',
-        updatedBy: 'System Checkout',
+        updatedBy: 'Boutique Checkout',
         createdAt: serverTimestamp(),
       });
       orderBatch.set(doc(db, 'orders', demoOrder2Id, 'tracking', 'evt_2'), {
         orderId: demoOrder2Id,
         customerUid: adminProfile.uid,
         status: 'Packed & Ready',
-        location: 'Dispatch Bay 2, Nairobi Depot',
-        notes: 'Pishori rice and cane sugar staged for afternoon courier loading.',
+        location: 'Lavington Tailoring & Fragrance Vault',
+        notes: 'Flax linen bolt and frosted Neroli flacon sealed for courier handoff.',
         updatedBy: adminProfile.displayName,
         createdAt: serverTimestamp(),
       });

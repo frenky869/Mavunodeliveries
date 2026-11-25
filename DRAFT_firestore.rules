@@ -80,7 +80,7 @@ service cloud.firestore {
       ]) &&
       data.sku is string && data.sku.size() >= 2 && data.sku.size() <= 40 && data.sku.matches('^[A-Z0-9\\-]+$') &&
       data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
-      data.category in ['Grains & Cereals', 'Pulses & Legumes', 'Sugar & Sweeteners', 'Oils & Pantry'] &&
+      data.category in ['Silk & Satin Fabrics', 'Linen & Cotton Textiles', 'Eau de Parfum', 'Botanical & Oud Oils'] &&
       data.description is string && data.description.size() >= 5 && data.description.size() <= 500 &&
       data.unitLabel is string && data.unitLabel.size() >= 2 && data.unitLabel.size() <= 40 &&
       data.unitPrice is number && data.unitPrice >= 0 &&

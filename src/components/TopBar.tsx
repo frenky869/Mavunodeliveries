@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, LogIn, LogOut, MapPin, Package, ShoppingBag } from 'lucide-react';
 import { UserProfile } from '../types/commerce';
 
-export type AppView = 'catalog' | 'orders' | 'track' | 'dispatch';
+export type AppView = 'catalog' | 'orders' | 'track' | 'dispatch' | 'login';
 
 interface TopBarProps {
   activeView: AppView;
@@ -41,22 +41,22 @@ export function TopBar({
   }, []);
 
   const navItems: { id: AppView; label: string }[] = [
-    { id: 'catalog', label: 'Catalog' },
+    { id: 'catalog', label: 'Collection' },
     { id: 'orders', label: 'My Orders' },
     { id: 'track', label: 'Track Delivery' },
-    { id: 'dispatch', label: 'Dispatch Console' },
+    { id: 'dispatch', label: 'Atelier Console' },
   ];
 
   return (
-    <header className="sticky top-0 z-30 bg-[#F7F7F5]/95 backdrop-blur-sm border-b border-stone-200">
+    <header className="sticky top-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-sm border-b border-stone-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4 sm:gap-8">
         {/* Zone 1: Single-element Brand Wordmark */}
         <button
           type="button"
           onClick={() => onNavigate('catalog')}
-          className="font-display text-lg sm:text-xl font-bold tracking-tight text-zinc-900 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-800 rounded"
+          className="font-display text-2xl font-semibold tracking-tight text-zinc-900 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-zinc-900 rounded"
         >
-          Mavuno Direct
+          Sable &amp; Silk
         </button>
 
         {/* Zone 2: Single-line Navigation Links */}
@@ -70,7 +70,7 @@ export function TopBar({
                 onClick={() => onNavigate(item.id)}
                 className={`py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 ${
                   isActive
-                    ? 'text-zinc-900 border-emerald-900'
+                    ? 'text-zinc-900 border-zinc-900'
                     : 'text-stone-600 border-transparent hover:text-zinc-900 hover:border-stone-300'
                 }`}
               >
@@ -80,7 +80,7 @@ export function TopBar({
           })}
         </nav>
 
-        {/* Zone 3: Account Menu & Primary Cart Action */}
+        {/* Zone 3: Account Menu & Primary Bag Action */}
         <div className="flex items-center gap-3 shrink-0">
           {!authLoading && (
             user ? (
@@ -144,7 +144,11 @@ export function TopBar({
               <button
                 type="button"
                 onClick={onSignIn}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-700 hover:text-zinc-900 whitespace-nowrap shrink-0 cursor-pointer py-2 px-3 rounded-lg border border-stone-300 bg-white hover:bg-stone-50 transition-colors"
+                className={`inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer py-2 px-3 rounded-lg border transition-colors ${
+                  activeView === 'login'
+                    ? 'border-zinc-900 bg-zinc-900 text-white'
+                    : 'border-stone-300 bg-white text-stone-700 hover:text-zinc-900 hover:bg-stone-50'
+                }`}
               >
                 <LogIn className="w-3.5 h-3.5" />
                 Sign In
@@ -155,11 +159,11 @@ export function TopBar({
           <button
             type="button"
             onClick={onOpenCart}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-900 text-white text-xs sm:text-sm font-medium hover:bg-emerald-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-900 text-white text-xs sm:text-sm font-medium hover:bg-zinc-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>Cart</span>
-            <span className="font-mono tabular-nums text-emerald-100">({cartCount})</span>
+            <span>Bag</span>
+            <span className="font-mono tabular-nums text-stone-300">({cartCount})</span>
           </button>
         </div>
       </div>
@@ -175,7 +179,7 @@ export function TopBar({
               onClick={() => onNavigate(item.id)}
               className={`text-xs font-medium whitespace-nowrap shrink-0 py-1 border-b-2 transition-colors ${
                 isActive
-                  ? 'text-zinc-900 border-emerald-900'
+                  ? 'text-zinc-900 border-zinc-900'
                   : 'text-stone-600 border-transparent'
               }`}
             >
@@ -183,7 +187,7 @@ export function TopBar({
             </button>
           );
         })}
-        {!authLoading && user && (
+        {!authLoading && (user ? (
           <button
             type="button"
             onClick={onOpenProfile}
@@ -191,7 +195,15 @@ export function TopBar({
           >
             Address
           </button>
-        )}
+        ) : (
+          <button
+            type="button"
+            onClick={onSignIn}
+            className="ml-auto text-xs font-medium text-zinc-900 whitespace-nowrap shrink-0 py-1"
+          >
+            Sign In
+          </button>
+        ))}
       </div>
     </header>
   );

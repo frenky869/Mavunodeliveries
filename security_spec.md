@@ -1,4 +1,4 @@
-# Security Specification — Mavuno Direct Commodity Platform
+# Security Specification — Sable & Silk Boutique Platform
 
 ## 1. Data Invariants
 1. **Identity Integrity**: Users may only create their own `users/{userId}` document with `role == 'customer'` and `uid == request.auth.uid`. Only an existing admin can elevate a user to `dispatcher` or `admin`.

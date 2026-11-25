@@ -1,4 +1,4 @@
--- Realistic Seed Data for Mavuno Direct PostgreSQL Database
+-- Realistic Seed Data for Sable & Silk PostgreSQL Database
 -- Replace placeholder password_hash values via your server auth utility before production use.
 
 INSERT INTO users (id, full_name, email, password_hash, phone, default_address, role)
@@ -9,16 +9,16 @@ VALUES
     'amina.customer@example.com',
     '$scrypt$n=16384,r=8,p=1$demo-salt$replace-with-runtime-hash',
     '+254 712 345 678',
-    'Juja Town Market Stall 14, Kiambu County',
+    'Riverside Drive Suite 4B, Westlands, Nairobi',
     'customer'
   ),
   (
     '22222222-2222-2222-2222-222222222222',
-    'David Ochieng',
-    'dispatcher@example.com',
+    'Claire Mutua',
+    'atelier@example.com',
     '$scrypt$n=16384,r=8,p=1$demo-salt$replace-with-runtime-hash',
     '+254 722 100 200',
-    'Nairobi Industrial Area Central Depot',
+    'Sable & Silk Nairobi Atelier, Kilimani',
     'admin'
   )
 ON CONFLICT (email) DO NOTHING;
@@ -28,13 +28,15 @@ INSERT INTO commodities (
   stock_quantity, low_stock_threshold, origin, image_url, is_active
 )
 VALUES
-  ('aaaaaaaa-0001-0001-0001-000000000001', 'GRN-MZE-50KG', 'Grade 1 Dry White Maize', 'Grains & Cereals', 'Sun-dried, machine-cleaned white maize kernels for posho milling and wholesale supply.', '50kg bag', 3450.00, 'KES', 48, 12, 'Trans-Nzoia, Kitale', '/src/assets/images/commodity_maize_grain_1795601314397.jpg', TRUE),
-  ('aaaaaaaa-0001-0001-0001-000000000002', 'GRN-YMZ-25KG', 'Whole Yellow Maize Grain', 'Grains & Cereals', 'High-carotenoid dried yellow maize screened to 12.5% moisture.', '25kg bag', 1850.00, 'KES', 9, 10, 'Uasin Gishu, Eldoret', '/src/assets/images/commodity_maize_grain_1795601314397.jpg', TRUE),
-  ('aaaaaaaa-0001-0001-0001-000000000003', 'GRN-RCE-25KG', 'Mwea Pishori Aromatic Rice', 'Grains & Cereals', 'Pure long-grain aromatic Pishori rice harvested from irrigated paddies.', '25kg bag', 4650.00, 'KES', 34, 8, 'Kirinyaga, Mwea', '/src/assets/images/commodity_pishori_rice_1795601314668.jpg', TRUE),
-  ('aaaaaaaa-0001-0001-0001-000000000004', 'PLS-RSC-50KG', 'Nyota & Rosecoco Red Beans', 'Pulses & Legumes', 'Fresh-season speckled rosecoco beans prized for fast cooking time.', '50kg bag', 6800.00, 'KES', 22, 8, 'Meru & Embu Highlands', '/src/assets/images/commodity_beans_pulses_1795601314512.jpg', TRUE),
-  ('aaaaaaaa-0001-0001-0001-000000000005', 'PLS-YLB-1KG', 'Single-Origin Yellow Beans', 'Pulses & Legumes', 'Gentle-digesting yellow beans packed in 1kg pantry portions.', 'per kg', 240.00, 'KES', 0, 15, 'Nakuru Basin', '/src/assets/images/commodity_beans_pulses_1795601314512.jpg', TRUE),
-  ('aaaaaaaa-0001-0001-0001-000000000006', 'SGR-BRN-50KG', 'Unrefined Brown Cane Sugar', 'Sugar & Sweeteners', 'Coarse golden-brown cane sugar milled locally with moisture-barrier lining.', '50kg bag', 6450.00, 'KES', 29, 6, 'Kakamega, Mumias', '/src/assets/images/commodity_cane_sugar_1795601315533.jpg', TRUE),
-  ('aaaaaaaa-0001-0001-0001-000000000007', 'OIL-SUN-5L', 'Pure Refined Sunflower Oil', 'Oils & Pantry', 'Cholesterol-free, triple-filtered sunflower cooking oil in a 5L jerrycan.', '5L jerrycan', 1480.00, 'KES', 41, 10, 'Thika Refinery', '/src/assets/images/commodity_cooking_oil_1795601315949.jpg', TRUE)
+  ('aaaaaaaa-0001-0001-0001-000000000001', 'FAB-SLK-01', 'Solid Dyed Couture Crepe Bolts', 'Silk & Satin Fabrics', 'Full-width solid dyed silk crepe and satin rolls in magenta, charcoal, dusty rose, espresso, olive, crimson, and deep plum for tailored garments.', 'per meter', 1850.00, 'KES', 42, 10, 'Atelier Vault', '/assets/aistudio/IMG-20261125-WA0005_491395f7.jpg', TRUE),
+  ('aaaaaaaa-0001-0001-0001-000000000002', 'FAB-SHF-02', 'Shifoni Maua · Scarlet & Cobalt Floral Chiffon', 'Silk & Satin Fabrics', 'Airy printed Shifoni Maua chiffon rolls featuring crimson botanical roses, royal cobalt blossoms, terracotta geometrics, and lime poppy prints.', 'per meter', 1450.00, 'KES', 7, 8, 'Fathy Textiles', '/assets/aistudio/IMG-20261125-WA0006_85463d22.jpg', TRUE),
+  ('aaaaaaaa-0001-0001-0001-000000000003', 'FAB-SHF-05M', 'Shifoni Maua · Botanical & Paisley Chiffon', 'Silk & Satin Fabrics', 'Curated 5-meter atelier bolt of Shifoni Maua chiffon blending mint blossom, forest baroque foliage, cream peonies, and warm terracotta paisley.', '5m bolt', 6800.00, 'KES', 18, 5, 'Fathy Textiles', '/assets/aistudio/IMG-20261125-WA0009_01569df1.jpg', TRUE),
+  ('aaaaaaaa-0001-0001-0001-000000000004', 'TXT-SHF-01', 'Shifoni Maua · Pastel Rose & Toile Chiffon', 'Linen & Cotton Textiles', 'Soft pastel blush, icy blue toile, sage meadow, burgundy medallion, and golden tiger-stripe chiffon rolls ideal for flowing dresses and scarves.', 'per meter', 1350.00, 'KES', 56, 12, 'Fathy Textiles', '/assets/aistudio/IMG-20261125-WA0007_d0d76b4e.jpg', TRUE),
+  ('aaaaaaaa-0001-0001-0001-000000000005', 'TXT-SHF-02', 'Shifoni Maua · Polka Dot & Poppy Chiffon', 'Linen & Cotton Textiles', 'Signature black-and-white polka dot, crimson poppy, olive lily, ocean wave, and marigold floral chiffon rolls cut cleanly to length.', 'per meter', 1400.00, 'KES', 64, 15, 'Fathy Textiles', '/assets/aistudio/IMG-20261125-WA0010_9c4fe833.jpg', TRUE),
+  ('aaaaaaaa-0001-0001-0001-000000000007', 'PRF-AMB-100', 'Lumina Amber & Saffron Eau de Parfum', 'Eau de Parfum', 'Top notes of Calabrian bergamot and red saffron unfolding into warm golden labdanum, resinous amber, and aged cedarwood.', '100ml flacon', 12800.00, 'KES', 24, 6, 'Grasse, France', '/src/assets/images/perfume_amber_oud_1795606060003.jpg', TRUE),
+  ('aaaaaaaa-0001-0001-0001-000000000008', 'PRF-NER-50', 'Neroli & White Cedar Eau de Parfum', 'Eau de Parfum', 'Sunlit Tunisian neroli blossom layered over crisp green petitgrain, white tea leaf, and dry Atlas cedar in frosted glass.', '50ml flacon', 8900.00, 'KES', 31, 8, 'Grasse, France', '/src/assets/images/perfume_botanical_oil_1795606060646.jpg', TRUE),
+  ('aaaaaaaa-0001-0001-0001-000000000009', 'PRF-NOI-50', 'Ambre Noir Reserve Eau de Parfum', 'Eau de Parfum', 'Smoky Madagascar vanilla bean, toasted cardamom, and dark benzoin balm crafted for long-lasting evening sillage.', '50ml flacon', 9600.00, 'KES', 5, 6, 'Paris Atelier', '/src/assets/images/perfume_amber_oud_1795606060003.jpg', TRUE),
+  ('aaaaaaaa-0001-0001-0001-000000000010', 'OIL-ATT-15', 'Pure Cedarwood & Sandal Attar Oil', 'Botanical & Oud Oils', 'Alcohol-free concentrated botanical perfume oil distilled in small batches with Mysore sandalwood, cedar heartwood, and neroli.', '15ml dropper', 5400.00, 'KES', 19, 5, 'Lamu & Oman Blend', '/src/assets/images/perfume_botanical_oil_1795606060646.jpg', TRUE)
 ON CONFLICT (sku) DO NOTHING;
 
 INSERT INTO orders (
@@ -43,33 +45,29 @@ INSERT INTO orders (
 )
 VALUES (
   'bbbbbbbb-0001-0001-0001-000000000001',
-  'MVN-2026-1042',
+  'SSL-2026-2041',
   '11111111-1111-1111-1111-111111111111',
   '+254 712 345 678',
-  'Juja Town Market Stall 14, Kiambu County',
-  'Call gate security upon truck arrival.',
+  'Riverside Drive Suite 4B, Westlands, Nairobi',
+  'Deliver rolled silk in acid-free tube.',
   'In Transit',
-  15180.00,
+  16500.00,
   0.00,
-  15180.00,
+  16500.00,
   'KES'
 )
 ON CONFLICT (order_reference) DO NOTHING;
 
 INSERT INTO order_items (order_id, commodity_id, commodity_name, unit_label, quantity, unit_price, line_total)
 SELECT 'bbbbbbbb-0001-0001-0001-000000000001', id, name, unit_label, 2, unit_price, unit_price * 2
-FROM commodities WHERE sku = 'GRN-MZE-50KG';
+FROM commodities WHERE sku = 'FAB-SLK-01';
 
 INSERT INTO order_items (order_id, commodity_id, commodity_name, unit_label, quantity, unit_price, line_total)
 SELECT 'bbbbbbbb-0001-0001-0001-000000000001', id, name, unit_label, 1, unit_price, unit_price
-FROM commodities WHERE sku = 'PLS-RSC-50KG';
-
-INSERT INTO order_items (order_id, commodity_id, commodity_name, unit_label, quantity, unit_price, line_total)
-SELECT 'bbbbbbbb-0001-0001-0001-000000000001', id, name, unit_label, 1, unit_price, unit_price
-FROM commodities WHERE sku = 'OIL-SUN-5L';
+FROM commodities WHERE sku = 'PRF-AMB-100';
 
 INSERT INTO delivery_tracking (order_id, status, location, notes, updated_by)
 VALUES
-  ('bbbbbbbb-0001-0001-0001-000000000001', 'Order Placed', 'Nairobi Central Fulfillment Hub', 'Order confirmed and warehouse inventory allocated.', 'System Checkout'),
-  ('bbbbbbbb-0001-0001-0001-000000000001', 'Packed & Ready', 'Industrial Area Bay 4, Nairobi', 'Moisture-checked sacks sealed, weighed, and palletized.', 'David Ochieng'),
-  ('bbbbbbbb-0001-0001-0001-000000000001', 'In Transit', 'Thika Superhighway · Ruiru Toll Corridor', 'Dispatched via Isuzu FRR Cargo Van KDQ 418M en route to Juja.', 'David Ochieng');
+  ('bbbbbbbb-0001-0001-0001-000000000001', 'Order Placed', 'Sable & Silk Nairobi Atelier', 'Order confirmed and atelier stock reserved.', 'System Checkout'),
+  ('bbbbbbbb-0001-0001-0001-000000000001', 'Packed & Ready', 'Kilimani Fragrance & Textile Vault', 'Silk rolled on archival tube and fragrance sealed in cushioned gift box.', 'Claire Mutua'),
+  ('bbbbbbbb-0001-0001-0001-000000000001', 'In Transit', 'Westlands Express Courier Van', 'Out on climate-controlled boutique courier route to Riverside Drive.', 'Claire Mutua');

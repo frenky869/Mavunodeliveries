@@ -14,6 +14,7 @@ import {
   updateUserProfileDetails,
 } from '../services/firestoreService';
 import { CartItem, formatKes, UserProfile } from '../types/commerce';
+import { AddressLocationPicker } from './AddressLocationPicker';
 import { CommodityImage } from './CommodityImage';
 
 interface CartDrawerProps {
@@ -81,7 +82,7 @@ export function CartDrawer({
     }
 
     if (address.trim().length < 5) {
-      setErrorMsg('Please provide a delivery street, estate, or depot address.');
+      setErrorMsg('Please provide a delivery street, studio, or residence address.');
       return;
     }
 
@@ -128,15 +129,15 @@ export function CartDrawer({
       <aside className="relative z-10 w-full max-w-md bg-white h-full flex flex-col border-l border-stone-200 shadow-xl">
         <div className="px-6 py-4 border-b border-stone-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4 text-emerald-900" />
-            <h2 className="font-display text-lg font-semibold text-zinc-900">
-              Order Cart
+            <ShoppingBag className="w-4 h-4 text-zinc-900" />
+            <h2 className="font-display text-2xl font-semibold text-zinc-900">
+              Shopping Bag
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close cart drawer"
+            aria-label="Close shopping bag"
             className="p-2 rounded-lg text-stone-500 hover:text-zinc-900 hover:bg-stone-100 cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -145,16 +146,16 @@ export function CartDrawer({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {placedRef && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+            <div className="bg-[#FAF8F5] border border-stone-300 rounded-xl p-4 space-y-3">
               <div className="flex items-start gap-2.5">
                 <CheckCircle2 className="w-5 h-5 text-emerald-800 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-emerald-950">
-                    Order Confirmed & Stock Reserved
+                  <p className="text-sm font-semibold text-zinc-900">
+                    Order Confirmed &amp; Stock Reserved
                   </p>
-                  <p className="text-xs text-emerald-900 mt-1">
+                  <p className="text-xs text-stone-600 mt-1">
                     Reference:{' '}
-                    <span className="font-mono font-semibold">{placedRef}</span>
+                    <span className="font-mono font-semibold text-zinc-900">{placedRef}</span>
                   </p>
                 </div>
               </div>
@@ -165,7 +166,7 @@ export function CartDrawer({
                   setPlacedRef(null);
                   onOrderPlaced(ref);
                 }}
-                className="w-full py-2 px-3 rounded-lg bg-emerald-900 text-white text-xs font-medium hover:bg-emerald-800 cursor-pointer"
+                className="w-full py-2 px-3 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 cursor-pointer"
               >
                 View Live Delivery Timeline
               </button>
@@ -181,24 +182,24 @@ export function CartDrawer({
 
           {cart.length === 0 ? (
             <div className="py-12 text-center space-y-2">
-              <p className="text-sm font-medium text-zinc-900">Your cart is empty</p>
+              <p className="text-sm font-medium text-zinc-900">Your bag is empty</p>
               <p className="text-xs text-stone-500">
-                Add maize, beans, rice, sugar, or cooking oil from the catalog to reserve stock.
+                Add fine silk, Belgian linen, Eau de Parfum, or oud oils from the collection.
               </p>
             </div>
           ) : (
             <>
               {freeDeliveryRemaining > 0 ? (
-                <div className="bg-[#F7F7F5] border border-stone-200 rounded-lg px-3.5 py-2.5 text-xs text-stone-700">
+                <div className="bg-[#FAF8F5] border border-stone-200 rounded-lg px-3.5 py-2.5 text-xs text-stone-700">
                   Add{' '}
                   <span className="font-mono font-semibold text-zinc-900">
                     {formatKes(freeDeliveryRemaining)}
                   </span>{' '}
-                  more to unlock free regional dispatch.
+                  more for complimentary atelier courier delivery.
                 </div>
               ) : (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3.5 py-2.5 text-xs text-emerald-900 font-medium">
-                  Free regional delivery unlocked on this order.
+                <div className="bg-[#F3EFE8] border border-stone-300 rounded-lg px-3.5 py-2.5 text-xs text-zinc-900 font-medium">
+                  Complimentary atelier courier unlocked on this order.
                 </div>
               )}
 
@@ -207,7 +208,7 @@ export function CartDrawer({
                   const atMax = quantity >= commodity.stockQuantity;
                   return (
                     <li key={commodity.id} className="py-4 flex gap-3.5">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-stone-100 shrink-0 border border-stone-200">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-[#F3EFE8] shrink-0 border border-stone-200">
                         <CommodityImage src={commodity.imageUrl} alt={commodity.name} />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -232,7 +233,7 @@ export function CartDrawer({
                         </p>
 
                         <div className="mt-2.5 flex items-center justify-between">
-                          <div className="inline-flex items-center border border-stone-300 rounded-md bg-[#F7F7F5]">
+                          <div className="inline-flex items-center border border-stone-300 rounded-md bg-[#FAF8F5]">
                             <button
                               type="button"
                               onClick={() => onUpdateQty(commodity.id, quantity - 1)}
@@ -262,7 +263,7 @@ export function CartDrawer({
 
                         {atMax && (
                           <p className="text-[11px] text-amber-800 mt-1">
-                            Maximum available warehouse stock ({commodity.stockQuantity}) selected.
+                            Maximum available vault stock ({commodity.stockQuantity}) selected.
                           </p>
                         )}
                       </div>
@@ -278,7 +279,7 @@ export function CartDrawer({
                 className="space-y-3.5 pt-3 border-t border-stone-200"
               >
                 <h3 className="text-xs font-semibold text-zinc-900">
-                  Delivery Destination
+                  Courier Destination
                 </h3>
 
                 <div>
@@ -292,36 +293,31 @@ export function CartDrawer({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+254 712 345 678"
-                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-emerald-800"
+                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="delivery-address" className="block text-xs text-stone-600 mb-1">
-                    Delivery Address / Market Stall / Estate
-                  </label>
-                  <textarea
-                    id="delivery-address"
-                    required
-                    rows={2}
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Juja Town Market Stall 14, Kiambu"
-                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-emerald-800"
-                  />
-                </div>
+                <AddressLocationPicker
+                  id="delivery-address"
+                  label="Delivery Address / Studio / Residence"
+                  required
+                  rows={2}
+                  value={address}
+                  onChange={setAddress}
+                  placeholder="e.g. Riverside Drive Suite 4B, Westlands, Nairobi"
+                />
 
                 <div>
                   <label htmlFor="delivery-notes" className="block text-xs text-stone-600 mb-1">
-                    Dispatch Notes (optional)
+                    Tailoring or Packaging Notes (optional)
                   </label>
                   <input
                     id="delivery-notes"
                     type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Gate instructions or preferred offloading window"
-                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-emerald-800"
+                    placeholder="Gift wrap or continuous uncut fabric yardage"
+                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-zinc-900"
                   />
                 </div>
 
@@ -331,9 +327,9 @@ export function CartDrawer({
                       type="checkbox"
                       checked={saveAsDefault}
                       onChange={(e) => setSaveAsDefault(e.target.checked)}
-                      className="rounded border-stone-300 text-emerald-900 focus:ring-emerald-800"
+                      className="rounded border-stone-300 text-zinc-900 focus:ring-zinc-900"
                     />
-                    <span>Save phone & address as default for future orders</span>
+                    <span>Save phone &amp; address as default for future orders</span>
                   </label>
                 )}
               </form>
@@ -342,16 +338,16 @@ export function CartDrawer({
         </div>
 
         {cart.length > 0 && (
-          <div className="p-6 border-t border-stone-200 bg-[#F7F7F5] space-y-4">
+          <div className="p-6 border-t border-stone-200 bg-[#FAF8F5] space-y-4">
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between text-stone-600">
                 <span>Subtotal</span>
                 <span className="font-mono tabular-nums">{formatKes(subtotal)}</span>
               </div>
               <div className="flex justify-between text-stone-600">
-                <span>Regional Dispatch Fee</span>
+                <span>Atelier Courier Fee</span>
                 <span className="font-mono tabular-nums">
-                  {deliveryFee === 0 ? 'Free' : formatKes(deliveryFee)}
+                  {deliveryFee === 0 ? 'Complimentary' : formatKes(deliveryFee)}
                 </span>
               </div>
               <div className="flex justify-between font-semibold text-zinc-900 pt-2 border-t border-stone-200">
@@ -365,7 +361,7 @@ export function CartDrawer({
                 type="submit"
                 form="checkout-form"
                 disabled={submitting}
-                className="w-full py-3 px-4 rounded-lg bg-emerald-900 text-white text-sm font-medium hover:bg-emerald-800 disabled:opacity-60 transition-colors cursor-pointer"
+                className="w-full py-3 px-4 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 disabled:opacity-60 transition-colors cursor-pointer"
               >
                 {submitting ? 'Reserving Stock & Placing Order...' : 'Place Order'}
               </button>
@@ -373,10 +369,10 @@ export function CartDrawer({
               <button
                 type="button"
                 onClick={onSignIn}
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-emerald-900 text-white text-sm font-medium hover:bg-emerald-800 transition-colors cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 <LogIn className="w-4 h-4" />
-                Sign In with Google to Place Order
+                Sign In to Place Order
               </button>
             )}
           </div>
