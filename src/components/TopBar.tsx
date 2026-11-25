@@ -10,6 +10,7 @@ interface TopBarProps {
   cartCount: number;
   onOpenCart: () => void;
   user: UserProfile | null;
+  pendingVerificationEmail?: string | null;
   authLoading: boolean;
   onSignIn: () => void;
   onSignOut: () => void;
@@ -22,6 +23,7 @@ export function TopBar({
   cartCount,
   onOpenCart,
   user,
+  pendingVerificationEmail,
   authLoading,
   onSignIn,
   onSignOut,
@@ -147,11 +149,13 @@ export function TopBar({
                 className={`inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer py-2 px-3 rounded-lg border transition-colors ${
                   activeView === 'login'
                     ? 'border-zinc-900 bg-zinc-900 text-white'
+                    : pendingVerificationEmail
+                    ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
                     : 'border-stone-300 bg-white text-stone-700 hover:text-zinc-900 hover:bg-stone-50'
                 }`}
               >
                 <LogIn className="w-3.5 h-3.5" />
-                Sign In
+                {pendingVerificationEmail ? 'Verify Email' : 'Sign In'}
               </button>
             )
           )}
@@ -199,9 +203,11 @@ export function TopBar({
           <button
             type="button"
             onClick={onSignIn}
-            className="ml-auto text-xs font-medium text-zinc-900 whitespace-nowrap shrink-0 py-1"
+            className={`ml-auto text-xs font-medium whitespace-nowrap shrink-0 py-1 ${
+              pendingVerificationEmail ? 'text-amber-800' : 'text-zinc-900'
+            }`}
           >
-            Sign In
+            {pendingVerificationEmail ? 'Verify Email' : 'Sign In'}
           </button>
         ))}
       </div>

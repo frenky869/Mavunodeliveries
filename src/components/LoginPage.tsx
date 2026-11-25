@@ -34,9 +34,9 @@ function mapFirebaseAuthError(err: unknown): string {
 
   switch (code) {
     case 'auth/unauthorized-domain':
-      return `Sign-in is blocked because "${host}" is not listed in Firebase Authorized Domains yet. Add "${host}" under Firebase Console → Authentication → Settings → Authorized domains.`;
+      return `Sign-in is blocked because "${host}" is not listed in Firebase Authorized Domains yet. Add "${host}" under Firebase Console → Security → Authentication → Settings → Authorized domains.`;
     case 'auth/operation-not-allowed':
-      return 'Email & password sign-in is not enabled in Firebase Console yet. Enable it under Authentication → Sign-in method → Email/Password, or use Continue with Google above.';
+      return 'Email & password sign-in is not enabled in Firebase Console yet. Enable it under Security → Authentication → Sign-in method → Email/Password, or use Continue with Google above.';
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':

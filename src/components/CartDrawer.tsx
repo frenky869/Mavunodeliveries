@@ -3,8 +3,10 @@ import {
   AlertCircle,
   CheckCircle2,
   LogIn,
+  MailCheck,
   Minus,
   Plus,
+  RefreshCw,
   ShoppingBag,
   Trash2,
   X,
@@ -25,6 +27,10 @@ interface CartDrawerProps {
   onRemoveItem: (commodityId: string) => void;
   onClearCart: () => void;
   user: UserProfile | null;
+  pendingVerificationEmail?: string | null;
+  onCheckVerification: () => Promise<boolean>;
+  onResendVerification: () => Promise<void>;
+  onGoogleSignIn: () => Promise<void>;
   onSignIn: () => void;
   onOrderPlaced: (orderReference: string) => void;
   onProfileUpdated: (updated: { displayName: string; phone: string; defaultAddress: string }) => void;
@@ -38,6 +44,10 @@ export function CartDrawer({
   onRemoveItem,
   onClearCart,
   user,
+  pendingVerificationEmail,
+  onCheckVerification,
+  onResendVerification,
+  onGoogleSignIn,
   onSignIn,
   onOrderPlaced,
   onProfileUpdated,
@@ -47,7 +57,9 @@ export function CartDrawer({
   const [notes, setNotes] = useState('');
   const [saveAsDefault, setSaveAsDefault] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [placedRef, setPlacedRef] = useState<string | null>(null);
 
   useEffect(() => {
@@ -177,6 +189,13 @@ export function CartDrawer({
             <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-rose-900">
               <AlertCircle className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {infoMsg && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-emerald-900">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+              <span>{infoMsg}</span>
             </div>
           )}
 
@@ -365,6 +384,94 @@ export function CartDrawer({
               >
                 {submitting ? 'Reserving Stock & Placing Order...' : 'Place Order'}
               </button>
+            ) : pendingVerificationEmail ? (
+              <div className="bg-white border border-amber-300 rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-start gap-2 text-xs text-amber-950">
+                  <MailCheck className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    Account created for{' '}
+                    <span className="font-semibold">{pendingVerificationEmail}</span>. Click the
+                    verification link in your email (check Spam if needed), then tap below to
+                    place your order.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={verifying}
+                    onClick={async () => {
+                      setErrorMsg(null);
+                      setInfoMsg(null);
+                      setVerifying(true);
+                      try {
+                        const ok = await onCheckVerification();
+                        if (!ok) {
+                          setErrorMsg(
+                            'Your email is still unverified. Open the link in your inbox, then tap this button again.'
+                          );
+                        } else {
+                          setInfoMsg('Email verified! Tap Place Order below to confirm.');
+                        }
+                      } catch (err) {
+                        setErrorMsg(
+                          err instanceof Error ? err.message : 'Unable to check verification.'
+                        );
+                      } finally {
+                        setVerifying(false);
+                      }
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 disabled:opacity-60 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    {verifying ? 'Checking...' : "I've Verified Email"}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={verifying}
+                    onClick={async () => {
+                      setErrorMsg(null);
+                      setInfoMsg(null);
+                      setVerifying(true);
+                      try {
+                        await onResendVerification();
+                        setInfoMsg(`Verification link resent to ${pendingVerificationEmail}.`);
+                      } catch (err) {
+                        setErrorMsg(
+                          err instanceof Error ? err.message : 'Could not resend verification.'
+                        );
+                      } finally {
+                        setVerifying(false);
+                      }
+                    }}
+                    className="inline-flex items-center justify-center py-2.5 px-3 rounded-lg border border-stone-300 bg-white text-zinc-900 text-xs font-medium hover:bg-stone-50 disabled:opacity-60 cursor-pointer"
+                  >
+                    Resend Link
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={verifying}
+                  onClick={async () => {
+                    setErrorMsg(null);
+                    setVerifying(true);
+                    try {
+                      await onGoogleSignIn();
+                    } catch (err) {
+                      setErrorMsg(
+                        err instanceof Error ? err.message : 'Google sign-in failed.'
+                      );
+                    } finally {
+                      setVerifying(false);
+                    }
+                  }}
+                  className="w-full py-2 text-xs font-medium text-stone-700 hover:text-zinc-900 underline cursor-pointer"
+                >
+                  Or Continue with Google to Order Immediately
+                </button>
+              </div>
             ) : (
               <button
                 type="button"

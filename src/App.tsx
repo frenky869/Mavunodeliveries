@@ -94,6 +94,7 @@ export default function App() {
       }
       setPendingVerificationUser(null);
       try {
+        await firebaseUser.getIdToken();
         const profile = await ensureUserProfile(firebaseUser);
         setUser(profile);
         setAuthError(null);
@@ -105,6 +106,55 @@ export default function App() {
     });
     return () => unsub();
   }, []);
+
+  // 1b. Auto-detect email verification when user verifies in another tab and returns
+  useEffect(() => {
+    if (!pendingVerificationUser) return;
+
+    let cancelled = false;
+    const checkNow = async () => {
+      const current = auth.currentUser;
+      if (!current || cancelled) return;
+      try {
+        await current.reload();
+        if (current.emailVerified && !cancelled) {
+          await current.getIdToken(true);
+          const profile = await ensureUserProfile(current);
+          if (cancelled) return;
+          setPendingVerificationUser(null);
+          setUser(profile);
+          setAuthError(null);
+          showToast({ message: 'Email verified! You can now place your order.' });
+          setActiveView((curr) => (curr === 'login' ? returnView || 'catalog' : curr));
+          if (reopenBagAfterLogin) {
+            setCartOpen(true);
+            setReopenBagAfterLogin(false);
+          }
+        }
+      } catch {
+        // Ignore transient network errors during background verification checks
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void checkNow();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    const interval = window.setInterval(() => {
+      void checkNow();
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.clearInterval(interval);
+    };
+  }, [pendingVerificationUser, returnView, reopenBagAfterLogin]);
 
   // 2. Real-time Commodity Catalog Listener
   useEffect(() => {
@@ -270,6 +320,10 @@ export default function App() {
     setAuthError(null);
     const cred = await signInWithPopup(auth, googleAuthProvider);
     if (cred.user.emailVerified) {
+      await cred.user.getIdToken(true);
+      const profile = await ensureUserProfile(cred.user);
+      setPendingVerificationUser(null);
+      setUser(profile);
       completeAuthenticatedNavigation();
     }
   };
@@ -277,10 +331,15 @@ export default function App() {
   const handleEmailSignIn = async (email: string, password: string) => {
     setAuthError(null);
     const cred = await signInWithEmailAndPassword(auth, email, password);
+    await cred.user.reload();
     if (!cred.user.emailVerified) {
       setPendingVerificationUser(cred.user);
       return;
     }
+    await cred.user.getIdToken(true);
+    const profile = await ensureUserProfile(cred.user);
+    setPendingVerificationUser(null);
+    setUser(profile);
     completeAuthenticatedNavigation();
   };
 
@@ -288,8 +347,12 @@ export default function App() {
     setAuthError(null);
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: fullName });
-    await sendEmailVerification(cred.user);
     setPendingVerificationUser(cred.user);
+    try {
+      await sendEmailVerification(cred.user);
+    } catch {
+      // Verification screen allows resending if initial send is rate-limited
+    }
   };
 
   const handlePasswordReset = async (email: string) => {
@@ -306,9 +369,11 @@ export default function App() {
     if (!auth.currentUser) return false;
     await auth.currentUser.reload();
     if (auth.currentUser.emailVerified) {
-      setPendingVerificationUser(null);
+      await auth.currentUser.getIdToken(true);
       const profile = await ensureUserProfile(auth.currentUser);
+      setPendingVerificationUser(null);
       setUser(profile);
+      setAuthError(null);
       completeAuthenticatedNavigation();
       return true;
     }
@@ -497,6 +562,7 @@ export default function App() {
         cartCount={cartCount}
         onOpenCart={() => setCartOpen(true)}
         user={user}
+        pendingVerificationEmail={pendingVerificationUser?.email ?? null}
         authLoading={authLoading}
         onSignIn={() => openLoginPage()}
         onSignOut={handleSignOut}
@@ -672,6 +738,10 @@ export default function App() {
         onRemoveItem={handleRemoveCartItem}
         onClearCart={() => setCart([])}
         user={user}
+        pendingVerificationEmail={pendingVerificationUser?.email ?? null}
+        onCheckVerification={handleCheckVerification}
+        onResendVerification={handleResendVerification}
+        onGoogleSignIn={handleGoogleSignIn}
         onSignIn={() => openLoginPage('catalog', true)}
         onOrderPlaced={handleOrderPlaced}
         onProfileUpdated={(updated) =>
